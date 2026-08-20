@@ -1,23 +1,13 @@
-import {
-  Check,
-  ChevronLeft,
-  Download,
-  Smartphone,
-  Trash2,
-  Upload,
-} from "lucide-react";
+import { useState } from "react";
+import { Check, ChevronLeft, Smartphone, Upload } from "lucide-react";
 import { Link } from "react-router";
+import { FileSelectorModal } from "@/components/file-selector-modal";
+import { UploadedFileList } from "@/components/uploaded-file-list";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-
-const uploadedFiles = [
-  "Kommunikation 1.png",
-  "Figma Invoice Juli 2026.pdf",
-  "Aktueller Renten- oder Leistungsbescheid.pdf",
-];
 
 const versions = ["v1", "v2", "v3"];
 
@@ -41,18 +31,45 @@ function VersionSwitcher({ active }: { active: string }) {
   );
 }
 
+function JoinedUploadButton({
+  onDesktopUpload,
+}: {
+  onDesktopUpload: () => void;
+}) {
+  return (
+    <div className="inline-flex shrink-0 overflow-hidden rounded-md border">
+      <button
+        onClick={onDesktopUpload}
+        className="flex items-center gap-1.5 px-3 py-1.5 text-sm hover:bg-muted"
+      >
+        <Upload className="h-4 w-4" />
+        Datei hochladen
+      </button>
+      <span className="w-px bg-border" />
+      <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm hover:bg-muted">
+        <Smartphone className="h-4 w-4" />
+        Mit Handy scannen
+      </button>
+    </div>
+  );
+}
+
 function RequirementV2({
   title,
   badge,
   badgeVariant,
   note,
-  files = [],
+  files,
+  onDesktopUpload,
+  onDelete,
 }: {
   title: string;
   badge: string;
   badgeVariant: "secondary" | "outline";
   note: string;
-  files?: string[];
+  files: string[];
+  onDesktopUpload: () => void;
+  onDelete: (index: number) => void;
 }) {
   return (
     <div className="space-y-4">
@@ -67,50 +84,50 @@ function RequirementV2({
             <p className="text-sm text-muted-foreground">{note}</p>
           </div>
         </div>
-
-        {/* Joined button: desktop upload OR mobile scan */}
-        <div className="inline-flex shrink-0 overflow-hidden rounded-md border">
-          <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm hover:bg-muted">
-            <Upload className="h-4 w-4" />
-            Datei hochladen
-          </button>
-          <span className="w-px bg-border" />
-          <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm hover:bg-muted">
-            <Smartphone className="h-4 w-4" />
-            Mit Handy scannen
-          </button>
-        </div>
+        <JoinedUploadButton onDesktopUpload={onDesktopUpload} />
       </div>
 
-      {files.length > 0 && (
-        <div className="divide-y">
-          {files.map((file) => (
-            <div
-              key={file}
-              className="flex items-center justify-between gap-4 py-2"
-            >
-              <span className="text-sm underline underline-offset-2">
-                {file}
-              </span>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <button className="flex items-center gap-1 hover:text-foreground">
-                  <Download className="h-4 w-4" />
-                  Herunterladen
-                </button>
-                <button className="flex items-center gap-1 hover:text-foreground">
-                  <Trash2 className="h-4 w-4" />
-                  Löschen
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <UploadedFileList files={files} onDelete={onDelete} />
     </div>
   );
 }
 
+const initialFiles: Record<string, string[]> = {
+  personalausweis: [
+    "Kommunikation 1.png",
+    "Figma Invoice Juli 2026.pdf",
+    "Aktueller Renten- oder Leistungsbescheid.pdf",
+  ],
+  kontoauszuege: ["Kontoauszüge_Mai-August_2026.pdf"],
+  kontostand: [],
+};
+
 export default function AntragNachweiseV2() {
+  const [filesByReq, setFilesByReq] =
+    useState<Record<string, string[]>>(initialFiles);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [activeReq, setActiveReq] = useState<string | null>(null);
+
+  const openPicker = (reqId: string) => {
+    setActiveReq(reqId);
+    setPickerOpen(true);
+  };
+
+  const addFile = (name: string) => {
+    if (!activeReq) return;
+    setFilesByReq((prev) => ({
+      ...prev,
+      [activeReq]: [...prev[activeReq], name],
+    }));
+  };
+
+  const deleteFile = (reqId: string, index: number) => {
+    setFilesByReq((prev) => ({
+      ...prev,
+      [reqId]: prev[reqId].filter((_, i) => i !== index),
+    }));
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Top navigation */}
@@ -182,43 +199,15 @@ export default function AntragNachweiseV2() {
                   </span>
                   <Badge variant="secondary">Pflicht</Badge>
                 </div>
-
-                {/* Joined button: desktop upload OR mobile scan */}
-                <div className="inline-flex overflow-hidden rounded-md border">
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm hover:bg-muted">
-                    <Upload className="h-4 w-4" />
-                    Datei hochladen
-                  </button>
-                  <span className="w-px bg-border" />
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm hover:bg-muted">
-                    <Smartphone className="h-4 w-4" />
-                    Mit Handy scannen
-                  </button>
-                </div>
+                <JoinedUploadButton
+                  onDesktopUpload={() => openPicker("personalausweis")}
+                />
               </div>
 
-              <div className="divide-y">
-                {uploadedFiles.map((file) => (
-                  <div
-                    key={file}
-                    className="flex items-center justify-between gap-4 py-2"
-                  >
-                    <span className="text-sm underline underline-offset-2">
-                      {file}
-                    </span>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <button className="flex items-center gap-1 hover:text-foreground">
-                        <Download className="h-4 w-4" />
-                        Herunterladen
-                      </button>
-                      <button className="flex items-center gap-1 hover:text-foreground">
-                        <Trash2 className="h-4 w-4" />
-                        Löschen
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <UploadedFileList
+                files={filesByReq.personalausweis}
+                onDelete={(index) => deleteFile("personalausweis", index)}
+              />
             </CardContent>
           </Card>
 
@@ -236,7 +225,9 @@ export default function AntragNachweiseV2() {
                 badge="Pflicht"
                 badgeVariant="secondary"
                 note="Regional teils 6 Monate erforderlich."
-                files={["Kontoauszüge_Mai-August_2026.pdf"]}
+                files={filesByReq.kontoauszuege}
+                onDesktopUpload={() => openPicker("kontoauszuege")}
+                onDelete={(index) => deleteFile("kontoauszuege", index)}
               />
               <Separator />
               <RequirementV2
@@ -244,11 +235,20 @@ export default function AntragNachweiseV2() {
                 badge="Falls vorhanden"
                 badgeVariant="outline"
                 note="Nur falls keine Auszüge vorhanden."
+                files={filesByReq.kontostand}
+                onDesktopUpload={() => openPicker("kontostand")}
+                onDelete={(index) => deleteFile("kontostand", index)}
               />
             </CardContent>
           </Card>
         </div>
       </main>
+
+      <FileSelectorModal
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        onConfirm={addFile}
+      />
     </div>
   );
 }

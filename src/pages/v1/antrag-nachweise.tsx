@@ -1,13 +1,8 @@
-import {
-  Check,
-  ChevronLeft,
-  Download,
-  Plus,
-  Smartphone,
-  Trash2,
-  Upload,
-} from "lucide-react";
+import { useState } from "react";
+import { Check, ChevronLeft, Plus, Smartphone, Upload } from "lucide-react";
 import { Link } from "react-router";
+import { FileSelectorModal } from "@/components/file-selector-modal";
+import { UploadedFileList } from "@/components/uploaded-file-list";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,12 +14,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-
-const uploadedFiles = [
-  "Kommunikation 1.png",
-  "Figma Invoice Juli 2026.pdf",
-  "Aktueller Renten- oder Leistungsbescheid.pdf",
-];
 
 const versions = ["v1", "v2", "v3"];
 
@@ -48,18 +37,45 @@ function VersionSwitcher({ active }: { active: string }) {
   );
 }
 
+function AddDocumentMenu({ onDesktopUpload }: { onDesktopUpload: () => void }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" className="shrink-0">
+          <Plus className="h-4 w-4" />
+          Dokument hinzufügen
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64">
+        <DropdownMenuItem onSelect={onDesktopUpload}>
+          <Upload className="h-4 w-4" />
+          Von diesem Gerät hochladen
+        </DropdownMenuItem>
+        <DropdownMenuItem>
+          <Smartphone className="h-4 w-4" />
+          Mit Smartphone scannen oder hochladen
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function RequirementV1({
   title,
   badge,
   badgeVariant,
   note,
-  files = [],
+  files,
+  onDesktopUpload,
+  onDelete,
 }: {
   title: string;
   badge: string;
   badgeVariant: "secondary" | "outline";
   note: string;
-  files?: string[];
+  files: string[];
+  onDesktopUpload: () => void;
+  onDelete: (index: number) => void;
 }) {
   return (
     <div className="space-y-4">
@@ -74,55 +90,50 @@ function RequirementV1({
             <p className="text-sm text-muted-foreground">{note}</p>
           </div>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="shrink-0">
-              <Plus className="h-4 w-4" />
-              Dokument hinzufügen
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64">
-            <DropdownMenuItem>
-              <Upload className="h-4 w-4" />
-              Von diesem Gerät hochladen
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Smartphone className="h-4 w-4" />
-              Mit Smartphone scannen oder hochladen
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <AddDocumentMenu onDesktopUpload={onDesktopUpload} />
       </div>
 
-      {files.length > 0 && (
-        <div className="divide-y">
-          {files.map((file) => (
-            <div
-              key={file}
-              className="flex items-center justify-between gap-4 py-2"
-            >
-              <span className="text-sm underline underline-offset-2">
-                {file}
-              </span>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <button className="flex items-center gap-1 hover:text-foreground">
-                  <Download className="h-4 w-4" />
-                  Herunterladen
-                </button>
-                <button className="flex items-center gap-1 hover:text-foreground">
-                  <Trash2 className="h-4 w-4" />
-                  Löschen
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <UploadedFileList files={files} onDelete={onDelete} />
     </div>
   );
 }
 
+const initialFiles: Record<string, string[]> = {
+  personalausweis: [
+    "Kommunikation 1.png",
+    "Figma Invoice Juli 2026.pdf",
+    "Aktueller Renten- oder Leistungsbescheid.pdf",
+  ],
+  kontoauszuege: ["Kontoauszüge_Mai-August_2026.pdf"],
+  kontostand: [],
+};
+
 export default function AntragNachweiseV1() {
+  const [filesByReq, setFilesByReq] =
+    useState<Record<string, string[]>>(initialFiles);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [activeReq, setActiveReq] = useState<string | null>(null);
+
+  const openPicker = (reqId: string) => {
+    setActiveReq(reqId);
+    setPickerOpen(true);
+  };
+
+  const addFile = (name: string) => {
+    if (!activeReq) return;
+    setFilesByReq((prev) => ({
+      ...prev,
+      [activeReq]: [...prev[activeReq], name],
+    }));
+  };
+
+  const deleteFile = (reqId: string, index: number) => {
+    setFilesByReq((prev) => ({
+      ...prev,
+      [reqId]: prev[reqId].filter((_, i) => i !== index),
+    }));
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Top navigation */}
@@ -194,48 +205,15 @@ export default function AntragNachweiseV1() {
                   </span>
                   <Badge variant="secondary">Pflicht</Badge>
                 </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      <Plus className="h-4 w-4" />
-                      Dokument hinzufügen
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-64">
-                    <DropdownMenuItem>
-                      <Upload className="h-4 w-4" />
-                      Von diesem Gerät hochladen
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Smartphone className="h-4 w-4" />
-                      Mit Smartphone scannen oder hochladen
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <AddDocumentMenu
+                  onDesktopUpload={() => openPicker("personalausweis")}
+                />
               </div>
 
-              <div className="divide-y">
-                {uploadedFiles.map((file) => (
-                  <div
-                    key={file}
-                    className="flex items-center justify-between gap-4 py-2"
-                  >
-                    <span className="text-sm underline underline-offset-2">
-                      {file}
-                    </span>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <button className="flex items-center gap-1 hover:text-foreground">
-                        <Download className="h-4 w-4" />
-                        Herunterladen
-                      </button>
-                      <button className="flex items-center gap-1 hover:text-foreground">
-                        <Trash2 className="h-4 w-4" />
-                        Löschen
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <UploadedFileList
+                files={filesByReq.personalausweis}
+                onDelete={(index) => deleteFile("personalausweis", index)}
+              />
             </CardContent>
           </Card>
 
@@ -253,7 +231,9 @@ export default function AntragNachweiseV1() {
                 badge="Pflicht"
                 badgeVariant="secondary"
                 note="Regional teils 6 Monate erforderlich."
-                files={["Kontoauszüge_Mai-August_2026.pdf"]}
+                files={filesByReq.kontoauszuege}
+                onDesktopUpload={() => openPicker("kontoauszuege")}
+                onDelete={(index) => deleteFile("kontoauszuege", index)}
               />
               <Separator />
               <RequirementV1
@@ -261,11 +241,20 @@ export default function AntragNachweiseV1() {
                 badge="Falls vorhanden"
                 badgeVariant="outline"
                 note="Nur falls keine Auszüge vorhanden."
+                files={filesByReq.kontostand}
+                onDesktopUpload={() => openPicker("kontostand")}
+                onDelete={(index) => deleteFile("kontostand", index)}
               />
             </CardContent>
           </Card>
         </div>
       </main>
+
+      <FileSelectorModal
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        onConfirm={addFile}
+      />
     </div>
   );
 }
