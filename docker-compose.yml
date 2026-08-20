@@ -1,0 +1,13 @@
+services:
+  squeaks:
+    build: .
+    ports:
+      - "5173:5173"
+    volumes:
+      # Live-reload: mount source into the container
+      - .:/app
+      # Keep the container's node_modules (don't let the host mount clobber it)
+      - /app/node_modules
+    environment:
+      # Reliable file watching for bind mounts on macOS/Windows
+      - CHOKIDAR_USEPOLLING=true
