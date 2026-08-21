@@ -9,10 +9,11 @@ const prototypeNavButtonClass =
 export default function MobilePrototype() {
   const [searchParams] = useSearchParams();
   const highlightDocId = searchParams.get("doc") ?? undefined;
-  const [cameraPrototypeControls, setCameraPrototypeControls] = useState<{
-    advancePositioning: () => void;
-    retreatPositioning: () => void;
-    positioningState: 1 | 2 | 3;
+  const [scanPrototypeControls, setScanPrototypeControls] = useState<{
+    advance: () => void;
+    retreat: () => void;
+    canAdvance: boolean;
+    canRetreat: boolean;
   } | null>(null);
 
   return (
@@ -31,36 +32,34 @@ export default function MobilePrototype() {
       {/* Centered mobile viewport */}
       <div className="flex flex-1 items-center justify-center p-8">
         <div className="flex items-center gap-8">
-          {cameraPrototypeControls &&
-            cameraPrototypeControls.positioningState > 1 && (
-              <button
-                type="button"
-                onClick={cameraPrototypeControls.retreatPositioning}
-                className={prototypeNavButtonClass}
-                aria-label="Vorheriger Positionierungszustand (Prototyp)"
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </button>
-            )}
+          {scanPrototypeControls?.canRetreat && (
+            <button
+              type="button"
+              onClick={scanPrototypeControls.retreat}
+              className={prototypeNavButtonClass}
+              aria-label="Vorheriger Scan-Zustand (Prototyp)"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+          )}
 
           <div className="h-[812px] w-[375px] shrink-0 overflow-hidden rounded-[2.5rem] border-4 border-foreground bg-background">
             <UploadCenter
               highlightDocId={highlightDocId}
-              onCameraPrototypeControls={setCameraPrototypeControls}
+              onScanPrototypeControls={setScanPrototypeControls}
             />
           </div>
 
-          {cameraPrototypeControls &&
-            cameraPrototypeControls.positioningState < 3 && (
-              <button
-                type="button"
-                onClick={cameraPrototypeControls.advancePositioning}
-                className={prototypeNavButtonClass}
-                aria-label="Nächster Positionierungszustand (Prototyp)"
-              >
-                <ArrowRight className="h-4 w-4" />
-              </button>
-            )}
+          {scanPrototypeControls?.canAdvance && (
+            <button
+              type="button"
+              onClick={scanPrototypeControls.advance}
+              className={prototypeNavButtonClass}
+              aria-label="Nächster Scan-Zustand (Prototyp)"
+            >
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
     </div>

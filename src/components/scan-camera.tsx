@@ -89,9 +89,11 @@ function DetectionFrame({ state }: { state: PositioningState }) {
 
 export function ScanCamera({
   onClose,
+  onCapture,
   positioningState,
 }: {
   onClose: () => void;
+  onCapture: () => void;
   positioningState: PositioningState;
 }) {
   return (
@@ -125,6 +127,7 @@ export function ScanCamera({
       <div className="flex shrink-0 items-center justify-center bg-foreground py-6">
         <button
           type="button"
+          onClick={onCapture}
           className="h-16 w-16 rounded-full border-4 border-background bg-transparent"
           aria-label="Aufnahme"
         />

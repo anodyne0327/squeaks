@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScanCamera, type PositioningState } from "@/components/scan-camera";
+import { ScanProcessing } from "@/components/scan-processing";
 import {
   uploadCenterSections,
   uploadStatusText,
@@ -20,7 +21,19 @@ const INTRO_TITLE = "Dokumente hinzufügen";
 const INTRO_TEXT =
   "Scannen oder laden Sie hier Dokumente mit Ihrem Smartphone hoch. Sie werden automatisch Ihrem Antrag hinzugefügt.";
 
-type MobileView = "overview" | "scan-intro" | "camera";
+type MobileView = "overview" | "scan-intro" | "camera" | "processing" | "blank";
+
+const PROCESSING_AUTO_ADVANCE_MS = 1250;
+
+function getScanFlowStep(
+  view: MobileView,
+  positioningState: PositioningState,
+): number | null {
+  if (view === "camera") return positioningState - 1;
+  if (view === "processing") return 3;
+  if (view === "blank") return 4;
+  return null;
+}
 
 const SCAN_TIPS = [
   {
@@ -211,20 +224,22 @@ function DocumentRow({
 
 export function UploadCenter({
   highlightDocId,
-  onCameraPrototypeControls,
+  onScanPrototypeControls,
 }: {
   highlightDocId?: string;
-  onCameraPrototypeControls?: (
+  onScanPrototypeControls?: (
     controls: {
-      advancePositioning: () => void;
-      retreatPositioning: () => void;
-      positioningState: PositioningState;
+      advance: () => void;
+      retreat: () => void;
+      canAdvance: boolean;
+      canRetreat: boolean;
     } | null,
   ) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const introRef = useRef<HTMLDivElement>(null);
   const savedScrollTop = useRef(0);
+  const processingAutoAdvance = useRef(false);
   const [selectedId, setSelectedId] = useState<string | null>(
     highlightDocId ?? null,
   );
@@ -264,13 +279,38 @@ export function UploadCenter({
     }
   };
 
-  const advancePositioning = useCallback(() => {
-    setPositioningState((s) => (s < 3 ? ((s + 1) as PositioningState) : s));
+  const goToScanFlowStep = useCallback((step: number) => {
+    if (step <= 2) {
+      setView("camera");
+      setPositioningState((step + 1) as PositioningState);
+      return;
+    }
+
+    if (step === 3) {
+      processingAutoAdvance.current = false;
+      setView("processing");
+      return;
+    }
+
+    setView("blank");
   }, []);
 
-  const retreatPositioning = useCallback(() => {
-    setPositioningState((s) => (s > 1 ? ((s - 1) as PositioningState) : s));
-  }, []);
+  const retreatScanFlow = useCallback(() => {
+    const step = getScanFlowStep(view, positioningState);
+    if (step === null || step <= 0) return;
+    goToScanFlowStep(step - 1);
+  }, [view, positioningState, goToScanFlowStep]);
+
+  const advanceScanFlow = useCallback(() => {
+    const step = getScanFlowStep(view, positioningState);
+    if (step === null || step >= 4) return;
+    goToScanFlowStep(step + 1);
+  }, [view, positioningState, goToScanFlowStep]);
+
+  const handleCapture = () => {
+    processingAutoAdvance.current = true;
+    setView("processing");
+  };
 
   const handleBackFromScanIntro = () => {
     setView("overview");
@@ -284,24 +324,37 @@ export function UploadCenter({
     }
   };
 
+  const scanFlowStep = getScanFlowStep(view, positioningState);
+
   useEffect(() => {
-    if (view !== "camera") {
-      onCameraPrototypeControls?.(null);
+    if (scanFlowStep === null) {
+      onScanPrototypeControls?.(null);
       return;
     }
 
-    onCameraPrototypeControls?.({
-      advancePositioning,
-      retreatPositioning,
-      positioningState,
+    onScanPrototypeControls?.({
+      canRetreat: scanFlowStep > 0,
+      canAdvance: scanFlowStep < 4,
+      retreat: retreatScanFlow,
+      advance: advanceScanFlow,
     });
   }, [
-    view,
-    onCameraPrototypeControls,
-    advancePositioning,
-    retreatPositioning,
-    positioningState,
+    scanFlowStep,
+    onScanPrototypeControls,
+    retreatScanFlow,
+    advanceScanFlow,
   ]);
+
+  useEffect(() => {
+    if (view !== "processing" || !processingAutoAdvance.current) return;
+
+    const timer = window.setTimeout(() => {
+      setView("blank");
+      processingAutoAdvance.current = false;
+    }, PROCESSING_AUTO_ADVANCE_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [view]);
 
   useEffect(() => {
     if (view !== "overview" || !scrollRef.current) return;
@@ -333,9 +386,18 @@ export function UploadCenter({
     return (
       <ScanCamera
         onClose={handleBackFromCamera}
+        onCapture={handleCapture}
         positioningState={positioningState}
       />
     );
+  }
+
+  if (view === "processing") {
+    return <ScanProcessing />;
+  }
+
+  if (view === "blank") {
+    return <div className="h-full bg-background" />;
   }
 
   return (
