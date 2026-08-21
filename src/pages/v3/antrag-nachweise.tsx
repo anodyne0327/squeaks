@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Check, ChevronLeft, Smartphone, Upload } from "lucide-react";
 import { Link } from "react-router";
 import { FileSelectorModal } from "@/components/file-selector-modal";
+import { HandoverModal } from "@/components/handover-modal";
 import { UploadedFileList } from "@/components/uploaded-file-list";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,8 +34,10 @@ function VersionSwitcher({ active }: { active: string }) {
 
 function UploadChoiceTiles({
   onDesktopUpload,
+  onSmartphoneHandover,
 }: {
   onDesktopUpload: () => void;
+  onSmartphoneHandover: () => void;
 }) {
   return (
     <div className="grid grid-cols-2 gap-3">
@@ -48,7 +51,10 @@ function UploadChoiceTiles({
           Datei von diesem Gerät auswählen
         </span>
       </button>
-      <button className="flex flex-col items-start gap-1 rounded-md border p-4 text-left hover:bg-muted">
+      <button
+        onClick={onSmartphoneHandover}
+        className="flex flex-col items-start gap-1 rounded-md border p-4 text-left hover:bg-muted"
+      >
         <Smartphone className="mb-1 h-5 w-5" />
         <span className="text-sm font-bold">
           Auf dem Handy scannen oder hochladen
@@ -69,6 +75,7 @@ function RequirementV3({
   note,
   files,
   onDesktopUpload,
+  onSmartphoneHandover,
   onDelete,
 }: {
   title: string;
@@ -77,6 +84,7 @@ function RequirementV3({
   note: string;
   files: string[];
   onDesktopUpload: () => void;
+  onSmartphoneHandover: () => void;
   onDelete: (index: number) => void;
 }) {
   return (
@@ -92,7 +100,10 @@ function RequirementV3({
         </div>
       </div>
 
-      <UploadChoiceTiles onDesktopUpload={onDesktopUpload} />
+      <UploadChoiceTiles
+        onDesktopUpload={onDesktopUpload}
+        onSmartphoneHandover={onSmartphoneHandover}
+      />
 
       <UploadedFileList files={files} onDelete={onDelete} />
     </div>
@@ -113,6 +124,7 @@ export default function AntragNachweiseV3() {
   const [filesByReq, setFilesByReq] =
     useState<Record<string, string[]>>(initialFiles);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [handoverOpen, setHandoverOpen] = useState(false);
   const [activeReq, setActiveReq] = useState<string | null>(null);
 
   const openPicker = (reqId: string) => {
@@ -217,6 +229,7 @@ export default function AntragNachweiseV3() {
 
               <UploadChoiceTiles
                 onDesktopUpload={() => openPicker("personalausweis")}
+                onSmartphoneHandover={() => setHandoverOpen(true)}
               />
 
               <UploadedFileList
@@ -242,6 +255,7 @@ export default function AntragNachweiseV3() {
                 note="Regional teils 6 Monate erforderlich."
                 files={filesByReq.kontoauszuege}
                 onDesktopUpload={() => openPicker("kontoauszuege")}
+                onSmartphoneHandover={() => setHandoverOpen(true)}
                 onDelete={(index) => deleteFile("kontoauszuege", index)}
               />
               <Separator />
@@ -252,6 +266,7 @@ export default function AntragNachweiseV3() {
                 note="Nur falls keine Auszüge vorhanden."
                 files={filesByReq.kontostand}
                 onDesktopUpload={() => openPicker("kontostand")}
+                onSmartphoneHandover={() => setHandoverOpen(true)}
                 onDelete={(index) => deleteFile("kontostand", index)}
               />
             </CardContent>
@@ -264,6 +279,7 @@ export default function AntragNachweiseV3() {
         onOpenChange={setPickerOpen}
         onConfirm={addFile}
       />
+      <HandoverModal open={handoverOpen} onOpenChange={setHandoverOpen} />
     </div>
   );
 }

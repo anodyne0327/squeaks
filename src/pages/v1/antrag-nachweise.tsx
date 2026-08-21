@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Check, ChevronLeft, Plus, Smartphone, Upload } from "lucide-react";
 import { Link } from "react-router";
 import { FileSelectorModal } from "@/components/file-selector-modal";
+import { HandoverModal } from "@/components/handover-modal";
 import { UploadedFileList } from "@/components/uploaded-file-list";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,7 +38,13 @@ function VersionSwitcher({ active }: { active: string }) {
   );
 }
 
-function AddDocumentMenu({ onDesktopUpload }: { onDesktopUpload: () => void }) {
+function AddDocumentMenu({
+  onDesktopUpload,
+  onSmartphoneHandover,
+}: {
+  onDesktopUpload: () => void;
+  onSmartphoneHandover: () => void;
+}) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -51,7 +58,7 @@ function AddDocumentMenu({ onDesktopUpload }: { onDesktopUpload: () => void }) {
           <Upload className="h-4 w-4" />
           Von diesem Gerät hochladen
         </DropdownMenuItem>
-        <DropdownMenuItem>
+        <DropdownMenuItem onSelect={onSmartphoneHandover}>
           <Smartphone className="h-4 w-4" />
           Mit Smartphone scannen oder hochladen
         </DropdownMenuItem>
@@ -67,6 +74,7 @@ function RequirementV1({
   note,
   files,
   onDesktopUpload,
+  onSmartphoneHandover,
   onDelete,
 }: {
   title: string;
@@ -75,6 +83,7 @@ function RequirementV1({
   note: string;
   files: string[];
   onDesktopUpload: () => void;
+  onSmartphoneHandover: () => void;
   onDelete: (index: number) => void;
 }) {
   return (
@@ -90,7 +99,10 @@ function RequirementV1({
             <p className="text-sm text-muted-foreground">{note}</p>
           </div>
         </div>
-        <AddDocumentMenu onDesktopUpload={onDesktopUpload} />
+        <AddDocumentMenu
+          onDesktopUpload={onDesktopUpload}
+          onSmartphoneHandover={onSmartphoneHandover}
+        />
       </div>
 
       <UploadedFileList files={files} onDelete={onDelete} />
@@ -112,6 +124,7 @@ export default function AntragNachweiseV1() {
   const [filesByReq, setFilesByReq] =
     useState<Record<string, string[]>>(initialFiles);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [handoverOpen, setHandoverOpen] = useState(false);
   const [activeReq, setActiveReq] = useState<string | null>(null);
 
   const openPicker = (reqId: string) => {
@@ -216,6 +229,7 @@ export default function AntragNachweiseV1() {
                 </div>
                 <AddDocumentMenu
                   onDesktopUpload={() => openPicker("personalausweis")}
+                  onSmartphoneHandover={() => setHandoverOpen(true)}
                 />
               </div>
 
@@ -242,6 +256,7 @@ export default function AntragNachweiseV1() {
                 note="Regional teils 6 Monate erforderlich."
                 files={filesByReq.kontoauszuege}
                 onDesktopUpload={() => openPicker("kontoauszuege")}
+                onSmartphoneHandover={() => setHandoverOpen(true)}
                 onDelete={(index) => deleteFile("kontoauszuege", index)}
               />
               <Separator />
@@ -252,6 +267,7 @@ export default function AntragNachweiseV1() {
                 note="Nur falls keine Auszüge vorhanden."
                 files={filesByReq.kontostand}
                 onDesktopUpload={() => openPicker("kontostand")}
+                onSmartphoneHandover={() => setHandoverOpen(true)}
                 onDelete={(index) => deleteFile("kontostand", index)}
               />
             </CardContent>
@@ -264,6 +280,7 @@ export default function AntragNachweiseV1() {
         onOpenChange={setPickerOpen}
         onConfirm={addFile}
       />
+      <HandoverModal open={handoverOpen} onOpenChange={setHandoverOpen} />
     </div>
   );
 }
