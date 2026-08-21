@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { ArrowRight, Link2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowRight, Check, Link2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -70,21 +70,47 @@ function QrRecognitionBanner({ onOpenMobile }: { onOpenMobile: () => void }) {
   );
 }
 
+function ConnectedState() {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Check className="h-4 w-4" />
+        <span className="font-bold">Smartphone verbunden</span>
+      </div>
+      <div className="space-y-2">
+        <p className="font-bold">Dokumente hochladen</p>
+        <p className="text-sm text-muted-foreground">
+          Fügen Sie Ihre Dokumente jetzt auf Ihrem Smartphone hinzu. Sie werden
+          automatisch Ihrem Antrag hinzugefügt.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export function HandoverModal({
   open,
   onOpenChange,
+  highlightDocId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  highlightDocId?: string | null;
 }) {
   const [qrRecognized, setQrRecognized] = useState(false);
+  const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    if (open) setQrRecognized(false);
+    if (open) {
+      setQrRecognized(false);
+      setConnected(false);
+    }
   }, [open]);
 
   const openMobileTab = () => {
-    window.open("/mobile", "_blank");
+    const url = highlightDocId ? `/mobile?doc=${highlightDocId}` : "/mobile";
+    window.open(url, "_blank");
+    setConnected(true);
   };
 
   return (
@@ -97,42 +123,46 @@ export function HandoverModal({
           <DialogTitle>Auf dem Smartphone fortfahren</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
-          <p className="text-center text-sm font-bold">
-            Scannen Sie den QR-Code mit Ihrem Smartphone.
-          </p>
+        {connected ? (
+          <ConnectedState />
+        ) : (
+          <div className="space-y-6">
+            <p className="text-center text-sm font-bold">
+              Scannen Sie den QR-Code mit Ihrem Smartphone.
+            </p>
 
-          <div className="flex flex-col items-center">
-            <button
-              type="button"
-              onClick={() => setQrRecognized(true)}
-              className="w-48 cursor-pointer"
-            >
-              <div className="aspect-square border-2 border-foreground p-2">
-                <QrCodeGrid />
-              </div>
-            </button>
+            <div className="flex flex-col items-center">
+              <button
+                type="button"
+                onClick={() => setQrRecognized(true)}
+                className="w-48 cursor-pointer"
+              >
+                <div className="aspect-square border-2 border-foreground p-2">
+                  <QrCodeGrid />
+                </div>
+              </button>
 
-            {!qrRecognized ? (
-              <p className="mt-3 w-full whitespace-nowrap text-center text-[10px] text-muted-foreground/70">
-                Im Prototyp klicken, um QR-Code zu scannen
-              </p>
-            ) : (
-              <div className="mt-3">
-                <QrRecognitionBanner onOpenMobile={openMobileTab} />
-              </div>
-            )}
+              {!qrRecognized ? (
+                <p className="mt-3 w-full whitespace-nowrap text-center text-[10px] text-muted-foreground/70">
+                  Im Prototyp klicken, um QR-Code zu scannen
+                </p>
+              ) : (
+                <div className="mt-3">
+                  <QrRecognitionBanner onOpenMobile={openMobileTab} />
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <p className="font-bold">So geht&apos;s</p>
+              <ol className="list-decimal space-y-1 pl-5">
+                <li>Öffnen Sie die Kamera auf Ihrem Smartphone.</li>
+                <li>Richten Sie die Kamera auf den QR-Code.</li>
+                <li>Tippen Sie auf den angezeigten Link.</li>
+              </ol>
+            </div>
           </div>
-
-          <div className="space-y-2 text-sm text-muted-foreground">
-            <p className="font-bold">So geht&apos;s</p>
-            <ol className="list-decimal space-y-1 pl-5">
-              <li>Öffnen Sie die Kamera auf Ihrem Smartphone.</li>
-              <li>Richten Sie die Kamera auf den QR-Code.</li>
-              <li>Tippen Sie auf den angezeigten Link.</li>
-            </ol>
-          </div>
-        </div>
+        )}
 
         {/* Prototype tooling: manual state progression */}
         <div className="flex justify-end pt-8 pb-2">

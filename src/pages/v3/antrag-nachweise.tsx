@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { FileSelectorModal } from "@/components/file-selector-modal";
 import { HandoverModal } from "@/components/handover-modal";
 import { UploadedFileList } from "@/components/uploaded-file-list";
+import { desktopHandoverDocIds } from "@/data/upload-center-documents";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -125,11 +126,17 @@ export default function AntragNachweiseV3() {
     useState<Record<string, string[]>>(initialFiles);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [handoverOpen, setHandoverOpen] = useState(false);
+  const [handoverDocId, setHandoverDocId] = useState<string | null>(null);
   const [activeReq, setActiveReq] = useState<string | null>(null);
 
   const openPicker = (reqId: string) => {
     setActiveReq(reqId);
     setPickerOpen(true);
+  };
+
+  const openHandover = (reqId: string) => {
+    setHandoverDocId(desktopHandoverDocIds[reqId] ?? null);
+    setHandoverOpen(true);
   };
 
   const addFile = (name: string) => {
@@ -229,7 +236,7 @@ export default function AntragNachweiseV3() {
 
               <UploadChoiceTiles
                 onDesktopUpload={() => openPicker("personalausweis")}
-                onSmartphoneHandover={() => setHandoverOpen(true)}
+                onSmartphoneHandover={() => openHandover("personalausweis")}
               />
 
               <UploadedFileList
@@ -255,7 +262,7 @@ export default function AntragNachweiseV3() {
                 note="Regional teils 6 Monate erforderlich."
                 files={filesByReq.kontoauszuege}
                 onDesktopUpload={() => openPicker("kontoauszuege")}
-                onSmartphoneHandover={() => setHandoverOpen(true)}
+                onSmartphoneHandover={() => openHandover("kontoauszuege")}
                 onDelete={(index) => deleteFile("kontoauszuege", index)}
               />
               <Separator />
@@ -266,7 +273,7 @@ export default function AntragNachweiseV3() {
                 note="Nur falls keine Auszüge vorhanden."
                 files={filesByReq.kontostand}
                 onDesktopUpload={() => openPicker("kontostand")}
-                onSmartphoneHandover={() => setHandoverOpen(true)}
+                onSmartphoneHandover={() => openHandover("kontostand")}
                 onDelete={(index) => deleteFile("kontostand", index)}
               />
             </CardContent>
@@ -279,7 +286,11 @@ export default function AntragNachweiseV3() {
         onOpenChange={setPickerOpen}
         onConfirm={addFile}
       />
-      <HandoverModal open={handoverOpen} onOpenChange={setHandoverOpen} />
+      <HandoverModal
+        open={handoverOpen}
+        onOpenChange={setHandoverOpen}
+        highlightDocId={handoverDocId}
+      />
     </div>
   );
 }

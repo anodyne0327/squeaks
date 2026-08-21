@@ -1,7 +1,11 @@
 import { ChevronLeft } from "lucide-react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
+import { UploadCenter } from "@/components/upload-center";
 
 export default function MobilePrototype() {
+  const [searchParams] = useSearchParams();
+  const highlightDocId = searchParams.get("doc") ?? undefined;
+
   return (
     <div className="flex min-h-screen flex-col bg-muted">
       {/* Prototype tooling bar */}
@@ -15,9 +19,11 @@ export default function MobilePrototype() {
         </Link>
       </div>
 
-      {/* Centered mobile viewport (empty for now) */}
+      {/* Centered mobile viewport */}
       <div className="flex flex-1 items-center justify-center p-8">
-        <div className="h-[812px] w-[375px] overflow-hidden rounded-[2.5rem] border-4 border-foreground bg-background" />
+        <div className="h-[812px] w-[375px] overflow-hidden rounded-[2.5rem] border-4 border-foreground bg-background">
+          <UploadCenter highlightDocId={highlightDocId} />
+        </div>
       </div>
     </div>
   );
