@@ -1,4 +1,5 @@
-import { ArrowRight } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowRight, Link2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -6,8 +7,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-function QrCodePlaceholder() {
-  // Deterministic pseudo-random pattern for a realistic-looking QR placeholder
+function QrCodeGrid() {
   const size = 21;
   const cells: boolean[][] = [];
   for (let y = 0; y < size; y++) {
@@ -25,33 +25,48 @@ function QrCodePlaceholder() {
           y === 6 ||
           (x >= size - 7 && (x === size - 7 || x === size - 1)) ||
           (y >= size - 7 && (y === size - 7 || y === size - 1)) ||
-          (x < 7 && y >= size - 7 && (x === 0 || x === 6 || y === size - 7 || y === size - 1)));
+          (x < 7 &&
+            y >= size - 7 &&
+            (x === 0 || x === 6 || y === size - 7 || y === size - 1)));
       const inCornerCenter =
         inCorner &&
         ((x >= 2 && x <= 4 && y >= 2 && y <= 4) ||
           (x >= size - 5 && x <= size - 3 && y >= 2 && y <= 4) ||
           (x >= 2 && x <= 4 && y >= size - 5 && y <= size - 3));
       cells[y][x] =
-        inCornerRing || inCornerCenter || ((x * 7 + y * 13 + x * y) % 5 < 2 && !inCorner);
+        inCornerRing ||
+        inCornerCenter ||
+        ((x * 7 + y * 13 + x * y) % 5 < 2 && !inCorner);
     }
   }
 
   return (
-    <div className="mx-auto aspect-square w-48 border-2 border-foreground p-2">
-      <div
-        className="grid h-full w-full gap-0"
-        style={{ gridTemplateColumns: `repeat(${size}, 1fr)` }}
-      >
-        {cells.flatMap((row, y) =>
-          row.map((filled, x) => (
-            <div
-              key={`${x}-${y}`}
-              className={filled ? "bg-foreground" : "bg-background"}
-            />
-          )),
-        )}
-      </div>
+    <div
+      className="grid h-full w-full gap-0"
+      style={{ gridTemplateColumns: `repeat(${size}, 1fr)` }}
+    >
+      {cells.flatMap((row, y) =>
+        row.map((filled, x) => (
+          <div
+            key={`${x}-${y}`}
+            className={filled ? "bg-foreground" : "bg-background"}
+          />
+        )),
+      )}
     </div>
+  );
+}
+
+function QrRecognitionBanner({ onOpenMobile }: { onOpenMobile: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpenMobile}
+      className="mx-auto flex items-center gap-2 rounded-full bg-foreground px-4 py-2.5 text-background shadow-md hover:opacity-90"
+    >
+      <Link2 className="h-3.5 w-3.5 shrink-0" />
+      <span className="text-xs font-medium">formfix.myo.de</span>
+    </button>
   );
 }
 
@@ -62,6 +77,16 @@ export function HandoverModal({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const [qrRecognized, setQrRecognized] = useState(false);
+
+  useEffect(() => {
+    if (open) setQrRecognized(false);
+  }, [open]);
+
+  const openMobileTab = () => {
+    window.open("/mobile", "_blank");
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -77,7 +102,27 @@ export function HandoverModal({
             Scannen Sie den QR-Code mit Ihrem Smartphone.
           </p>
 
-          <QrCodePlaceholder />
+          <div className="flex flex-col items-center">
+            <button
+              type="button"
+              onClick={() => setQrRecognized(true)}
+              className="w-48 cursor-pointer"
+            >
+              <div className="aspect-square border-2 border-foreground p-2">
+                <QrCodeGrid />
+              </div>
+            </button>
+
+            {!qrRecognized ? (
+              <p className="mt-3 w-full whitespace-nowrap text-center text-[10px] text-muted-foreground/70">
+                Im Prototyp klicken, um QR-Code zu scannen
+              </p>
+            ) : (
+              <div className="mt-3">
+                <QrRecognitionBanner onOpenMobile={openMobileTab} />
+              </div>
+            )}
+          </div>
 
           <div className="space-y-2 text-sm text-muted-foreground">
             <p className="font-bold">So geht&apos;s</p>
