@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Camera,
   Check,
@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ScanCamera, type PositioningState } from "@/components/scan-camera";
 import {
   uploadCenterSections,
   uploadStatusText,
@@ -208,7 +209,19 @@ function DocumentRow({
   );
 }
 
-export function UploadCenter({ highlightDocId }: { highlightDocId?: string }) {
+export function UploadCenter({
+  highlightDocId,
+  onCameraPrototypeControls,
+}: {
+  highlightDocId?: string;
+  onCameraPrototypeControls?: (
+    controls: {
+      advancePositioning: () => void;
+      retreatPositioning: () => void;
+      positioningState: PositioningState;
+    } | null,
+  ) => void;
+}) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const introRef = useRef<HTMLDivElement>(null);
   const savedScrollTop = useRef(0);
@@ -220,6 +233,7 @@ export function UploadCenter({ highlightDocId }: { highlightDocId?: string }) {
   const [view, setView] = useState<MobileView>("overview");
   const [hasSeenScanIntroThisSession, setHasSeenScanIntroThisSession] =
     useState(false);
+  const [positioningState, setPositioningState] = useState<PositioningState>(1);
 
   const updateStickyHeader = () => {
     const scrollEl = scrollRef.current;
@@ -233,9 +247,16 @@ export function UploadCenter({ highlightDocId }: { highlightDocId?: string }) {
     setSourceSheetOpen(true);
   };
 
+  const handleStartScan = () => {
+    setHasSeenScanIntroThisSession(true);
+    setPositioningState(1);
+    setView("camera");
+  };
+
   const goToScanFlow = () => {
     savedScrollTop.current = scrollRef.current?.scrollTop ?? 0;
     setSourceSheetOpen(false);
+    setPositioningState(1);
     if (hasSeenScanIntroThisSession) {
       setView("camera");
     } else {
@@ -243,14 +264,44 @@ export function UploadCenter({ highlightDocId }: { highlightDocId?: string }) {
     }
   };
 
-  const handleStartScan = () => {
-    setHasSeenScanIntroThisSession(true);
-    setView("camera");
-  };
+  const advancePositioning = useCallback(() => {
+    setPositioningState((s) => (s < 3 ? ((s + 1) as PositioningState) : s));
+  }, []);
+
+  const retreatPositioning = useCallback(() => {
+    setPositioningState((s) => (s > 1 ? ((s - 1) as PositioningState) : s));
+  }, []);
 
   const handleBackFromScanIntro = () => {
     setView("overview");
   };
+
+  const handleBackFromCamera = () => {
+    if (hasSeenScanIntroThisSession) {
+      setView("scan-intro");
+    } else {
+      setView("overview");
+    }
+  };
+
+  useEffect(() => {
+    if (view !== "camera") {
+      onCameraPrototypeControls?.(null);
+      return;
+    }
+
+    onCameraPrototypeControls?.({
+      advancePositioning,
+      retreatPositioning,
+      positioningState,
+    });
+  }, [
+    view,
+    onCameraPrototypeControls,
+    advancePositioning,
+    retreatPositioning,
+    positioningState,
+  ]);
 
   useEffect(() => {
     if (view !== "overview" || !scrollRef.current) return;
@@ -279,7 +330,12 @@ export function UploadCenter({ highlightDocId }: { highlightDocId?: string }) {
   }
 
   if (view === "camera") {
-    return <div className="h-full bg-background" />;
+    return (
+      <ScanCamera
+        onClose={handleBackFromCamera}
+        positioningState={positioningState}
+      />
+    );
   }
 
   return (
