@@ -141,7 +141,16 @@ export default function AntragNachweiseV1() {
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-8">
           <div className="flex items-center gap-4">
             <span className="text-lg font-bold">formfix</span>
-            <VersionSwitcher active="v1" />
+            <div className="flex items-center gap-2">
+              <Link
+                to="/"
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:underline"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                Back to start
+              </Link>
+              <VersionSwitcher active="v1" />
+            </div>
             <nav className="flex items-center gap-6 text-sm">
               <span className="text-muted-foreground">Erste Fragen</span>
               <span className="text-muted-foreground">Dokumente</span>
