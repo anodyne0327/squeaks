@@ -1,6 +1,6 @@
 import { ChevronLeft } from "lucide-react";
 import { Link } from "react-router";
-import { MobileDocumentOverview } from "@/components/mobile-document-overview";
+import { MobileStartFlow } from "@/components/mobile-start-flow";
 
 export default function MobileStartPage() {
   return (
@@ -17,7 +17,7 @@ export default function MobileStartPage() {
 
       <div className="flex flex-1 items-center justify-center p-8">
         <div className="h-[812px] w-[375px] shrink-0 overflow-hidden rounded-[2.5rem] border-4 border-foreground bg-background">
-          <MobileDocumentOverview />
+          <MobileStartFlow />
         </div>
       </div>
     </div>

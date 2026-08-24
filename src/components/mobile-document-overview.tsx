@@ -15,7 +15,7 @@ import {
   type MobileOverviewDocument,
 } from "@/data/mobile-document-overview-data";
 
-function JoinedUploadScanControl() {
+function JoinedUploadScanControl({ onScan }: { onScan?: () => void }) {
   return (
     <div className="flex overflow-hidden rounded-md border">
       <button
@@ -27,6 +27,7 @@ function JoinedUploadScanControl() {
       </button>
       <button
         type="button"
+        onClick={onScan}
         className="flex flex-1 items-center justify-center gap-1.5 bg-muted px-2 py-2 text-[11px] font-bold"
       >
         <ScanLine className="h-3.5 w-3.5 shrink-0" aria-hidden />
@@ -36,7 +37,13 @@ function JoinedUploadScanControl() {
   );
 }
 
-function DocumentRequirement({ document }: { document: MobileOverviewDocument }) {
+function DocumentRequirement({
+  document,
+  onScan,
+}: {
+  document: MobileOverviewDocument;
+  onScan?: (docId: string) => void;
+}) {
   const hasUploads = document.files.length > 0;
 
   return (
@@ -68,7 +75,7 @@ function DocumentRequirement({ document }: { document: MobileOverviewDocument })
         </div>
       </div>
 
-      <JoinedUploadScanControl />
+      <JoinedUploadScanControl onScan={() => onScan?.(document.id)} />
       <MobileOverviewUploadedFiles files={document.files} />
     </div>
   );
@@ -81,6 +88,7 @@ function OverviewSection({
   documents,
   expanded,
   onToggle,
+  onScan,
 }: {
   title: string;
   completionBadge: string;
@@ -88,6 +96,7 @@ function OverviewSection({
   documents: MobileOverviewDocument[];
   expanded: boolean;
   onToggle: () => void;
+  onScan?: (docId: string) => void;
 }) {
   return (
     <section className="overflow-hidden rounded-md border">
@@ -119,7 +128,11 @@ function OverviewSection({
           </button>
           <div className="divide-y rounded-md border bg-background">
             {documents.map((document) => (
-              <DocumentRequirement key={document.id} document={document} />
+              <DocumentRequirement
+                key={document.id}
+                document={document}
+                onScan={onScan}
+              />
             ))}
           </div>
         </div>
@@ -128,7 +141,11 @@ function OverviewSection({
   );
 }
 
-export function MobileDocumentOverview() {
+export function MobileDocumentOverview({
+  onScan,
+}: {
+  onScan?: (docId: string) => void;
+}) {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     () => new Set(),
   );
@@ -164,6 +181,7 @@ export function MobileDocumentOverview() {
               documents={section.documents}
               expanded={expandedSections.has(section.title)}
               onToggle={() => toggleSection(section.title)}
+              onScan={onScan}
             />
           ))}
         </div>
