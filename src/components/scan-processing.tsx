@@ -1,7 +1,11 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScanFlowHeader } from "@/components/scan-flow-header";
 
-export function ScanProcessing() {
+export function ScanProcessing({
+  message = "Aufnahme wird verarbeitet …",
+}: {
+  message?: string;
+}) {
   return (
     <div className="flex h-full flex-col bg-foreground text-background">
       <ScanFlowHeader variant="dark" />
@@ -10,7 +14,7 @@ export function ScanProcessing() {
           <Skeleton className="h-8 w-8 rounded-full border-background/40 bg-background/10" />
           <Skeleton className="h-1 w-12 bg-background/20" />
         </div>
-        <p className="text-sm">Aufnahme wird verarbeitet …</p>
+        <p className="text-sm">{message}</p>
       </div>
     </div>
   );

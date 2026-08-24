@@ -1,15 +1,7 @@
-function TooFarCaptureLines() {
-  return (
-    <div className="space-y-1.5 pt-1">
-      {Array.from({ length: 8 }, (_, i) => (
-        <div
-          key={i}
-          className={`h-1 bg-foreground/20 ${i % 3 === 1 ? "w-4/5" : i % 3 === 2 ? "w-3/5" : "w-full"}`}
-        />
-      ))}
-    </div>
-  );
-}
+import {
+  DocumentPageContent,
+  type DocumentPageId,
+} from "@/components/scan-document-content";
 
 const TOO_FAR_DOC_HALF_W = "75px";
 const TOO_FAR_DOC_HALF_H = "100px";
@@ -61,20 +53,28 @@ export function TooFarCaptureDimOverlay() {
   );
 }
 
-export function TooFarCaptureDocument() {
+export function TooFarCaptureDocument({
+  pageId = "P3",
+}: {
+  pageId?: DocumentPageId;
+}) {
   return (
     <TooFarDocumentFrame>
       <div className="h-full w-full border border-foreground/40 bg-background p-2">
-        <TooFarCaptureLines />
+        <DocumentPageContent pageId={pageId} lineCount={8} />
       </div>
     </TooFarDocumentFrame>
   );
 }
 
-export function TooFarCapturePreview() {
+export function TooFarCapturePreview({
+  pageId = "P3",
+}: {
+  pageId?: DocumentPageId;
+}) {
   return (
     <div className="relative h-full min-h-[420px] w-full overflow-hidden border border-foreground/40 bg-foreground">
-      <TooFarCaptureDocument />
+      <TooFarCaptureDocument pageId={pageId} />
     </div>
   );
 }

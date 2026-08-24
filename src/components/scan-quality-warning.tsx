@@ -3,9 +3,10 @@ import {
   ProcessedPagePreview,
   type ProcessedPagePreviewVariant,
 } from "@/components/scan-document-preview";
+import type { DocumentPageId } from "@/components/scan-document-content";
 import { ScanFlowHeader } from "@/components/scan-flow-header";
 
-export type QualityWarningVariant = "truncated" | "tooFar";
+export type QualityWarningVariant = "truncated" | "tooFar" | "duplicate";
 
 const WARNING_COPY: Record<
   QualityWarningVariant,
@@ -21,20 +22,31 @@ const WARNING_COPY: Record<
     description:
       "Das Dokument ist zu weit entfernt aufgenommen. Möchten Sie die Seite erneut aufnehmen oder trotzdem verwenden?",
   },
+  duplicate: {
+    title: "Seite möglicherweise doppelt gescannt",
+    description:
+      "Diese Seite scheint bereits vorhanden zu sein. Möchten Sie sie erneut aufnehmen oder trotzdem verwenden?",
+  },
 };
 
 export function ScanQualityWarning({
   variant,
+  previewPageId,
   onRetake,
   onUseAnyway,
 }: {
   variant: QualityWarningVariant;
+  previewPageId: DocumentPageId;
   onRetake: () => void;
   onUseAnyway: () => void;
 }) {
   const copy = WARNING_COPY[variant];
   const previewVariant: ProcessedPagePreviewVariant =
-    variant === "truncated" ? "cutOff" : "tooSmall";
+    variant === "truncated"
+      ? "cutOff"
+      : variant === "tooFar"
+        ? "tooSmall"
+        : "default";
 
   return (
     <div className="relative flex h-full flex-col bg-muted">
@@ -43,7 +55,7 @@ export function ScanQualityWarning({
       <div className="flex min-h-0 flex-1 flex-col px-4 pb-2">
         <div className="relative mx-auto flex min-h-0 w-full max-w-[300px] flex-1 flex-col pt-6">
           <div className="flex min-h-0 flex-1 items-center justify-center">
-            <ProcessedPagePreview variant={previewVariant} />
+            <ProcessedPagePreview variant={previewVariant} pageId={previewPageId} />
           </div>
         </div>
       </div>

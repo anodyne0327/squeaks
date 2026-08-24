@@ -1,4 +1,9 @@
+import { Image as ImageIcon } from "lucide-react";
 import { ScanFlowHeader } from "@/components/scan-flow-header";
+import {
+  DocumentPageContent,
+  type DocumentPageId,
+} from "@/components/scan-document-content";
 import { IncompleteCaptureDocument } from "@/components/scan-incomplete-capture";
 import {
   TooFarCaptureDocument,
@@ -13,27 +18,14 @@ const FEEDBACK: Record<PositioningState, string> = {
   3: "Gut positioniert",
 };
 
-function DocumentLines({ large = false }: { large?: boolean }) {
-  const lineCount = large ? 14 : 5;
-
-  return (
-    <div className="space-y-1.5 pt-1">
-      {Array.from({ length: lineCount }, (_, i) => (
-        <div
-          key={i}
-          className={`h-1 bg-foreground/20 ${i % 3 === 1 ? "w-4/5" : i % 3 === 2 ? "w-3/5" : "w-full"}`}
-        />
-      ))}
-    </div>
-  );
-}
-
 function PaperDocument({
   state,
+  documentPageId,
   incompleteCapture = false,
   tooFarCapture = false,
 }: {
   state: PositioningState;
+  documentPageId: DocumentPageId;
   incompleteCapture?: boolean;
   tooFarCapture?: boolean;
 }) {
@@ -43,18 +35,18 @@ function PaperDocument({
     "h-[400px] w-[270px] border border-foreground/40 bg-background p-3";
 
   if (tooFarCapture) {
-    return <TooFarCaptureDocument />;
+    return <TooFarCaptureDocument pageId={documentPageId} />;
   }
 
   if (incompleteCapture) {
-    return <IncompleteCaptureDocument />;
+    return <IncompleteCaptureDocument pageId={documentPageId} />;
   }
 
   if (state === 1) {
     return (
       <div className="absolute -bottom-10 -right-8 rotate-[-4deg]">
         <div className={paperClassSmall}>
-          <DocumentLines />
+          <DocumentPageContent pageId={documentPageId} lineCount={5} />
         </div>
       </div>
     );
@@ -64,7 +56,7 @@ function PaperDocument({
     return (
       <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rotate-[18deg]">
         <div className={paperClassSmall}>
-          <DocumentLines />
+          <DocumentPageContent pageId={documentPageId} lineCount={5} />
         </div>
       </div>
     );
@@ -73,7 +65,7 @@ function PaperDocument({
   return (
     <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
       <div className={paperClassLarge}>
-        <DocumentLines large />
+        <DocumentPageContent pageId={documentPageId} lineCount={14} />
       </div>
     </div>
   );
@@ -122,48 +114,72 @@ export function ScanCamera({
   onClose,
   onCapture,
   positioningState,
+  documentPageId,
   incompleteCapture = false,
   tooFarCapture = false,
+  duplicateCapture = false,
+  showDeviceAffordance = false,
+  onDeviceAffordanceClick,
+  emptyViewport = false,
 }: {
   onClose: () => void;
   onCapture: () => void;
   positioningState: PositioningState;
+  documentPageId: DocumentPageId;
   incompleteCapture?: boolean;
   tooFarCapture?: boolean;
+  duplicateCapture?: boolean;
+  showDeviceAffordance?: boolean;
+  onDeviceAffordanceClick?: () => void;
+  emptyViewport?: boolean;
 }) {
-  const feedback = tooFarCapture
-    ? "Gehen Sie näher an das Dokument heran"
-    : FEEDBACK[positioningState];
+  const feedback = duplicateCapture
+    ? "Diese Seite wurde möglicherweise bereits erfasst"
+    : tooFarCapture
+      ? "Gehen Sie näher an das Dokument heran"
+      : FEEDBACK[positioningState];
 
   return (
     <div className="relative flex h-full flex-col bg-foreground text-background">
       <ScanFlowHeader onClose={onClose} variant="dark" />
 
-      {/* Camera viewport */}
       <div className="relative min-h-0 flex-1 overflow-hidden">
-        {/* Feedback banner */}
-        <div className="absolute left-4 right-4 top-3 z-20">
-          <p className="rounded-md bg-background px-4 py-2.5 text-center text-sm font-bold text-foreground">
-            {feedback}
-          </p>
-        </div>
+        {!emptyViewport && (
+          <div className="absolute left-4 right-4 top-3 z-20">
+            <p className="rounded-md bg-background px-4 py-2.5 text-center text-sm font-bold text-foreground">
+              {feedback}
+            </p>
+          </div>
+        )}
 
-        {/* Document + detection frame */}
-        <div className="absolute inset-0 overflow-hidden">
-          <PaperDocument
-            state={positioningState}
-            incompleteCapture={incompleteCapture}
-            tooFarCapture={tooFarCapture}
-          />
-          <DetectionFrame
-            state={positioningState}
-            tooFarCapture={tooFarCapture}
-          />
-        </div>
+        {!emptyViewport && (
+          <div className="absolute inset-0 overflow-hidden">
+            <PaperDocument
+              state={positioningState}
+              documentPageId={documentPageId}
+              incompleteCapture={incompleteCapture}
+              tooFarCapture={tooFarCapture}
+            />
+            <DetectionFrame
+              state={positioningState}
+              tooFarCapture={tooFarCapture}
+            />
+          </div>
+        )}
       </div>
 
-      {/* Shutter bar */}
-      <div className="flex shrink-0 items-center justify-center bg-foreground py-6">
+      <div className="relative flex shrink-0 items-center justify-center bg-foreground py-6">
+        {showDeviceAffordance && (
+          <button
+            type="button"
+            onClick={onDeviceAffordanceClick}
+            className="absolute left-8 text-background/70 hover:text-background"
+            aria-label="Bild aus Gerät auswählen"
+          >
+            <ImageIcon className="h-5 w-5" />
+          </button>
+        )}
+
         <button
           type="button"
           onClick={onCapture}

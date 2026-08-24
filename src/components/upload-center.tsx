@@ -11,10 +11,16 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScanCamera, type PositioningState } from "@/components/scan-camera";
+import { ScanDeviceFilePicker } from "@/components/scan-device-file-picker";
+import { ScanDeviceSourceChooser } from "@/components/scan-device-source-chooser";
 import { ScanCropEditor } from "@/components/scan-crop-editor";
 import { ScanProcessing } from "@/components/scan-processing";
 import { ScanQualityWarning } from "@/components/scan-quality-warning";
 import { ScanReview } from "@/components/scan-review";
+import {
+  type DocumentPageId,
+  getDocumentPageId,
+} from "@/components/scan-document-content";
 import type { ProcessedPagePreviewVariant } from "@/components/scan-document-preview";
 import {
   uploadCenterSections,
@@ -28,6 +34,8 @@ const INTRO_TEXT =
 type MobileView =
   | "overview"
   | "scan-intro"
+  | "device-source"
+  | "device-picker"
   | "camera"
   | "processing"
   | "review"
@@ -35,7 +43,8 @@ type MobileView =
   | "crop";
 
 const PROCESSING_AUTO_ADVANCE_MS = 1250;
-const LAST_SCAN_FLOW_STEP = 17;
+const LAST_SCAN_FLOW_STEP = 26;
+const LAST_FILE_IMPORT_STEP = 3;
 
 function getScanFlowStep(
   view: MobileView,
@@ -46,7 +55,11 @@ function getScanFlowStep(
   page3CaptureTooSmall: boolean,
   page3Cropped: boolean,
 ): number | null {
+  if (view === "device-source" && scanPage === 5) return 23;
+  if (view === "device-picker" && scanPage === 5) return 24;
   if (view === "camera") {
+    if (scanPage === 5) return 22;
+    if (scanPage === 4) return 18;
     if (scanPage === 3) return 12;
     if (scanPage === 2) {
       return page2CameraIncomplete ? 5 : 9;
@@ -54,6 +67,8 @@ function getScanFlowStep(
     return positioningState - 1;
   }
   if (view === "processing") {
+    if (scanPage === 5) return 25;
+    if (scanPage === 4) return 19;
     if (scanPage === 3) return 13;
     if (scanPage === 2) {
       return page2CameraIncomplete ? 6 : 10;
@@ -61,10 +76,14 @@ function getScanFlowStep(
     return 3;
   }
   if (view === "warning") {
-    return scanPage === 3 ? 14 : 7;
+    if (scanPage === 4) return 20;
+    if (scanPage === 3) return 14;
+    return 7;
   }
   if (view === "crop") return 16;
   if (view === "review") {
+    if (scanPage === 5) return 26;
+    if (scanPage === 4) return 21;
     if (scanPage === 3) {
       if (page3Cropped) return 17;
       if (page3CaptureTooSmall) return 15;
@@ -75,6 +94,18 @@ function getScanFlowStep(
     }
     return 4;
   }
+  return null;
+}
+
+function getFileImportFlowStep(
+  view: MobileView,
+  isFileImportPath: boolean,
+): number | null {
+  if (!isFileImportPath) return null;
+  if (view === "device-source") return 0;
+  if (view === "device-picker") return 1;
+  if (view === "processing") return 2;
+  if (view === "review") return 3;
   return null;
 }
 
@@ -177,10 +208,12 @@ function SourceSelectionSheet({
   open,
   onClose,
   onScan,
+  onSelectFile,
 }: {
   open: boolean;
   onClose: () => void;
   onScan: () => void;
+  onSelectFile: () => void;
 }) {
   if (!open) return null;
 
@@ -209,7 +242,7 @@ function SourceSelectionSheet({
             <Camera className="h-4 w-4" />
             Dokument scannen
           </Button>
-          <Button variant="outline" className="w-full">
+          <Button variant="outline" className="w-full" onClick={onSelectFile}>
             Datei auswählen
           </Button>
         </div>
@@ -298,6 +331,9 @@ export function UploadCenter({
   const [page2CaptureTruncated, setPage2CaptureTruncated] = useState(false);
   const [page3CaptureTooSmall, setPage3CaptureTooSmall] = useState(false);
   const [page3Cropped, setPage3Cropped] = useState(false);
+  const [isFileImportPath, setIsFileImportPath] = useState(false);
+  const [processingFromDeviceUpload, setProcessingFromDeviceUpload] =
+    useState(false);
 
   const updateStickyHeader = () => {
     const scrollEl = scrollRef.current;
@@ -321,6 +357,7 @@ export function UploadCenter({
   const goToScanFlow = () => {
     savedScrollTop.current = scrollRef.current?.scrollTop ?? 0;
     setSourceSheetOpen(false);
+    setIsFileImportPath(false);
     setScanPage(1);
     setPositioningState(1);
     if (hasSeenScanIntroThisSession) {
@@ -329,6 +366,48 @@ export function UploadCenter({
       setView("scan-intro");
     }
   };
+
+  const goToFileImportFlow = () => {
+    savedScrollTop.current = scrollRef.current?.scrollTop ?? 0;
+    setSourceSheetOpen(false);
+    setIsFileImportPath(true);
+    setScanPage(1);
+    setPage2CameraIncomplete(true);
+    setPage2CaptureTruncated(false);
+    setPage3CaptureTooSmall(false);
+    setPage3Cropped(false);
+    setPositioningState(1);
+    setView("device-source");
+  };
+
+  const goToFileImportFlowStep = useCallback((step: number) => {
+    setIsFileImportPath(true);
+    setScanPage(1);
+    setPage2CameraIncomplete(true);
+    setPage2CaptureTruncated(false);
+    setPage3CaptureTooSmall(false);
+    setPage3Cropped(false);
+
+    if (step <= 0) {
+      setSourceSheetOpen(false);
+      setView("device-source");
+      return;
+    }
+
+    if (step === 1) {
+      setView("device-picker");
+      return;
+    }
+
+    if (step === 2) {
+      setProcessingFromDeviceUpload(true);
+      processingAutoAdvance.current = false;
+      setView("processing");
+      return;
+    }
+
+    setView("review");
+  }, []);
 
   const goToScanFlowStep = useCallback((step: number) => {
     if (step <= 2) {
@@ -340,6 +419,7 @@ export function UploadCenter({
 
     if (step === 3) {
       setScanPage(1);
+      setProcessingFromDeviceUpload(false);
       processingAutoAdvance.current = false;
       setView("processing");
       return;
@@ -363,6 +443,7 @@ export function UploadCenter({
     if (step === 6) {
       setScanPage(2);
       setPage2CameraIncomplete(true);
+      setProcessingFromDeviceUpload(false);
       processingAutoAdvance.current = false;
       setView("processing");
       return;
@@ -394,6 +475,7 @@ export function UploadCenter({
     if (step === 10) {
       setScanPage(2);
       setPage2CameraIncomplete(false);
+      setProcessingFromDeviceUpload(false);
       processingAutoAdvance.current = false;
       setView("processing");
       return;
@@ -416,6 +498,7 @@ export function UploadCenter({
 
     if (step === 13) {
       setScanPage(3);
+      setProcessingFromDeviceUpload(false);
       processingAutoAdvance.current = false;
       setView("processing");
       return;
@@ -445,11 +528,117 @@ export function UploadCenter({
       return;
     }
 
-    setScanPage(3);
-    setPage3CaptureTooSmall(false);
-    setPage3Cropped(true);
+    if (step === 17) {
+      setScanPage(3);
+      setPage3CaptureTooSmall(false);
+      setPage3Cropped(true);
+      setView("review");
+      return;
+    }
+
+    if (step === 18) {
+      setScanPage(4);
+      setPositioningState(3);
+      setView("camera");
+      return;
+    }
+
+    if (step === 19) {
+      setScanPage(4);
+      setProcessingFromDeviceUpload(false);
+      processingAutoAdvance.current = false;
+      setView("processing");
+      return;
+    }
+
+    if (step === 20) {
+      setScanPage(4);
+      setView("warning");
+      return;
+    }
+
+    if (step === 21) {
+      setScanPage(4);
+      setView("review");
+      return;
+    }
+
+    if (step === 22) {
+      setScanPage(5);
+      setPositioningState(3);
+      setView("camera");
+      return;
+    }
+
+    if (step === 23) {
+      setScanPage(5);
+      setView("device-source");
+      return;
+    }
+
+    if (step === 24) {
+      setScanPage(5);
+      setView("device-picker");
+      return;
+    }
+
+    if (step === 25) {
+      setScanPage(5);
+      setProcessingFromDeviceUpload(true);
+      processingAutoAdvance.current = false;
+      setView("processing");
+      return;
+    }
+
+    setScanPage(5);
     setView("review");
   }, []);
+
+  const retreatFromFileImportEntry = useCallback(() => {
+    setIsFileImportPath(false);
+    setSourceSheetOpen(true);
+    setView("overview");
+  }, []);
+
+  const retreatFileImportFlow = useCallback(() => {
+    const step = getFileImportFlowStep(view, isFileImportPath);
+    if (step === null) return;
+
+    if (step <= 0) {
+      retreatFromFileImportEntry();
+      return;
+    }
+
+    goToFileImportFlowStep(step - 1);
+  }, [view, isFileImportPath, goToFileImportFlowStep, retreatFromFileImportEntry]);
+
+  const advanceFileImportFlow = useCallback(() => {
+    const step = getFileImportFlowStep(view, isFileImportPath);
+    if (step === null || step >= LAST_FILE_IMPORT_STEP) return;
+
+    if (step === 1) {
+      processingAutoAdvance.current = true;
+      processingNextView.current = "review";
+    }
+
+    goToFileImportFlowStep(step + 1);
+  }, [view, isFileImportPath, goToFileImportFlowStep]);
+
+  const handleDeviceSourceSelectFile = () => {
+    setView("device-picker");
+  };
+
+  const handleSessionDeviceAffordance = () => {
+    setScanPage(5);
+    setView("device-source");
+  };
+
+  const handleFilePickerSelectDocument = () => {
+    setProcessingFromDeviceUpload(true);
+    processingAutoAdvance.current = true;
+    processingNextView.current = "review";
+    setView("processing");
+  };
 
   const retreatScanFlow = useCallback(() => {
     const step = getScanFlowStep(
@@ -485,6 +674,12 @@ export function UploadCenter({
       page3Cropped,
     );
     if (step === null || step >= LAST_SCAN_FLOW_STEP) return;
+
+    if (step === 24) {
+      processingAutoAdvance.current = true;
+      processingNextView.current = "review";
+    }
+
     goToScanFlowStep(step + 1);
   }, [
     view,
@@ -498,9 +693,12 @@ export function UploadCenter({
   ]);
 
   const handleCapture = () => {
+    setProcessingFromDeviceUpload(false);
     processingAutoAdvance.current = true;
-    if (scanPage === 1) {
+    if (scanPage === 1 || scanPage === 5) {
       processingNextView.current = "review";
+    } else if (scanPage === 4) {
+      processingNextView.current = "warning";
     } else if (scanPage === 2 && page2CameraIncomplete) {
       processingNextView.current = "warning";
     } else if (scanPage === 2) {
@@ -512,6 +710,8 @@ export function UploadCenter({
   };
 
   const handleAddPage = () => {
+    setIsFileImportPath(false);
+
     if (scanPage === 1) {
       setScanPage(2);
       setPage2CameraIncomplete(true);
@@ -521,9 +721,23 @@ export function UploadCenter({
       return;
     }
 
-    setScanPage(3);
-    setPage3CaptureTooSmall(false);
-    setPage3Cropped(false);
+    if (scanPage === 2) {
+      setScanPage(3);
+      setPage3CaptureTooSmall(false);
+      setPage3Cropped(false);
+      setView("camera");
+      return;
+    }
+
+    if (scanPage === 3) {
+      setScanPage(4);
+      setPositioningState(3);
+      setView("camera");
+      return;
+    }
+
+    setScanPage(5);
+    setPositioningState(3);
     setView("camera");
   };
 
@@ -539,7 +753,17 @@ export function UploadCenter({
     setView("camera");
   };
 
+  const handleRetakePage4Camera = () => {
+    setPositioningState(3);
+    setView("camera");
+  };
+
   const handleWarningUseAnyway = () => {
+    if (scanPage === 4) {
+      setView("review");
+      return;
+    }
+
     if (scanPage === 3) {
       setPage3CaptureTooSmall(true);
       setPage3Cropped(false);
@@ -562,6 +786,7 @@ export function UploadCenter({
   };
 
   const handleAbortScanSession = () => {
+    setIsFileImportPath(false);
     setScanPage(1);
     setPage2CameraIncomplete(true);
     setPage2CaptureTruncated(false);
@@ -593,8 +818,14 @@ export function UploadCenter({
     page3Cropped,
   );
 
-  const reviewPageIndicator =
-    scanPage === 3 ? "Seite 3/3" : scanPage === 2 ? "Seite 2/2" : `Seite ${scanPage}`;
+  const fileImportFlowStep = getFileImportFlowStep(view, isFileImportPath);
+  const activePrototypeStep = isFileImportPath ? fileImportFlowStep : scanFlowStep;
+  const activePrototypeLastStep = isFileImportPath
+    ? LAST_FILE_IMPORT_STEP
+    : LAST_SCAN_FLOW_STEP;
+
+  const reviewPageIndicator = `Seite ${scanPage}`;
+  const reviewDocumentPageId = getDocumentPageId(scanPage);
 
   const reviewPreviewVariant: ProcessedPagePreviewVariant =
     scanPage === 2 && page2CaptureTruncated
@@ -604,22 +835,28 @@ export function UploadCenter({
         : "default";
 
   useEffect(() => {
-    if (scanFlowStep === null) {
+    if (activePrototypeStep === null) {
       onScanPrototypeControls?.(null);
       return;
     }
 
     onScanPrototypeControls?.({
-      canRetreat: scanFlowStep > 0,
-      canAdvance: scanFlowStep < LAST_SCAN_FLOW_STEP,
-      retreat: retreatScanFlow,
-      advance: advanceScanFlow,
+      canRetreat: isFileImportPath
+        ? activePrototypeStep >= 0
+        : activePrototypeStep > 0,
+      canAdvance: activePrototypeStep < activePrototypeLastStep,
+      retreat: isFileImportPath ? retreatFileImportFlow : retreatScanFlow,
+      advance: isFileImportPath ? advanceFileImportFlow : advanceScanFlow,
     });
   }, [
-    scanFlowStep,
+    activePrototypeStep,
+    activePrototypeLastStep,
+    isFileImportPath,
     onScanPrototypeControls,
     retreatScanFlow,
     advanceScanFlow,
+    retreatFileImportFlow,
+    advanceFileImportFlow,
   ]);
 
   useEffect(() => {
@@ -662,28 +899,64 @@ export function UploadCenter({
     );
   }
 
+  if (view === "device-source") {
+    return (
+      <ScanDeviceSourceChooser onSelectFile={handleDeviceSourceSelectFile} />
+    );
+  }
+
+  if (view === "device-picker") {
+    return (
+      <ScanDeviceFilePicker
+        onSelectDocument={handleFilePickerSelectDocument}
+        documentPageId={scanPage === 5 ? "P4" : "P1"}
+      />
+    );
+  }
+
   if (view === "camera") {
     return (
       <ScanCamera
         onClose={handleBackFromCamera}
         onCapture={handleCapture}
         positioningState={positioningState}
+        documentPageId={getDocumentPageId(scanPage)}
         incompleteCapture={scanPage === 2 && page2CameraIncomplete}
         tooFarCapture={scanPage === 3}
+        duplicateCapture={scanPage === 4}
+        showDeviceAffordance={scanPage === 5}
+        onDeviceAffordanceClick={handleSessionDeviceAffordance}
+        emptyViewport={scanPage === 5}
       />
     );
   }
 
   if (view === "processing") {
-    return <ScanProcessing />;
+    return (
+      <ScanProcessing
+        message={
+          processingFromDeviceUpload
+            ? "Seite wird hinzugefügt …"
+            : "Aufnahme wird verarbeitet …"
+        }
+      />
+    );
   }
 
   if (view === "warning") {
+    const warningVariant =
+      scanPage === 4 ? "duplicate" : scanPage === 3 ? "tooFar" : "truncated";
+
     return (
       <ScanQualityWarning
-        variant={scanPage === 3 ? "tooFar" : "truncated"}
+        variant={warningVariant}
+        previewPageId={getDocumentPageId(scanPage)}
         onRetake={
-          scanPage === 3 ? handleRetakePage3Camera : handleRetakePage2Camera
+          scanPage === 4
+            ? handleRetakePage4Camera
+            : scanPage === 3
+              ? handleRetakePage3Camera
+              : handleRetakePage2Camera
         }
         onUseAnyway={handleWarningUseAnyway}
       />
@@ -701,6 +974,7 @@ export function UploadCenter({
       <ScanReview
         pageIndicator={reviewPageIndicator}
         previewVariant={reviewPreviewVariant}
+        previewPageId={reviewDocumentPageId}
         onRetake={
           scanPage === 2 && page2CaptureTruncated
             ? handleRetakePage2Camera
@@ -712,7 +986,10 @@ export function UploadCenter({
             : undefined
         }
         onAddPage={
-          scanPage === 1 || (scanPage === 2 && !page2CaptureTruncated)
+          scanPage === 1 ||
+          (scanPage === 2 && !page2CaptureTruncated) ||
+          scanPage === 3 ||
+          scanPage === 4
             ? handleAddPage
             : undefined
         }
@@ -759,6 +1036,7 @@ export function UploadCenter({
         open={sourceSheetOpen}
         onClose={() => setSourceSheetOpen(false)}
         onScan={goToScanFlow}
+        onSelectFile={goToFileImportFlow}
       />
     </div>
   );
