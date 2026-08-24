@@ -1,4 +1,5 @@
 import { ScanFlowHeader } from "@/components/scan-flow-header";
+import { IncompleteCaptureDocument } from "@/components/scan-incomplete-capture";
 
 export type PositioningState = 1 | 2 | 3;
 
@@ -23,11 +24,21 @@ function DocumentLines({ large = false }: { large?: boolean }) {
   );
 }
 
-function PaperDocument({ state }: { state: PositioningState }) {
+function PaperDocument({
+  state,
+  incompleteCapture = false,
+}: {
+  state: PositioningState;
+  incompleteCapture?: boolean;
+}) {
   const paperClassSmall =
     "h-44 w-32 border border-foreground/40 bg-background p-2";
   const paperClassLarge =
     "h-[400px] w-[270px] border border-foreground/40 bg-background p-3";
+
+  if (incompleteCapture) {
+    return <IncompleteCaptureDocument />;
+  }
 
   if (state === 1) {
     return (
@@ -91,10 +102,12 @@ export function ScanCamera({
   onClose,
   onCapture,
   positioningState,
+  incompleteCapture = false,
 }: {
   onClose: () => void;
   onCapture: () => void;
   positioningState: PositioningState;
+  incompleteCapture?: boolean;
 }) {
   return (
     <div className="relative flex h-full flex-col bg-foreground text-background">
@@ -110,8 +123,11 @@ export function ScanCamera({
         </div>
 
         {/* Document + detection frame */}
-        <div className="absolute inset-0">
-          <PaperDocument state={positioningState} />
+        <div className="absolute inset-0 overflow-hidden">
+          <PaperDocument
+            state={positioningState}
+            incompleteCapture={incompleteCapture}
+          />
           <DetectionFrame state={positioningState} />
         </div>
       </div>

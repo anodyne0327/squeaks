@@ -1,0 +1,46 @@
+import { Button } from "@/components/ui/button";
+import { ProcessedPagePreview } from "@/components/scan-document-preview";
+import { ScanFlowHeader } from "@/components/scan-flow-header";
+
+export function ScanQualityWarning({
+  onRetake,
+  onUseAnyway,
+}: {
+  onRetake: () => void;
+  onUseAnyway: () => void;
+}) {
+  return (
+    <div className="relative flex h-full flex-col bg-muted">
+      <ScanFlowHeader variant="light" />
+
+      <div className="flex min-h-0 flex-1 flex-col px-4 pb-2">
+        <div className="relative mx-auto flex min-h-0 w-full max-w-[300px] flex-1 flex-col pt-6">
+          <div className="flex min-h-0 flex-1 items-center justify-center">
+            <ProcessedPagePreview cutOff />
+          </div>
+        </div>
+      </div>
+
+      <div className="absolute inset-0 z-50 flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-black/50" />
+        <div className="relative w-full max-w-[280px] rounded-lg border bg-background p-4">
+          <h2 className="text-base font-bold">
+            Dokument nicht vollständig erfasst
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            „Ein Teil des Dokuments fehlt. Möchten Sie die Seite erneut
+            aufnehmen oder trotzdem verwenden?“
+          </p>
+          <div className="mt-4 space-y-2">
+            <Button className="w-full" onClick={onRetake}>
+              Erneut aufnehmen
+            </Button>
+            <Button variant="outline" className="w-full" onClick={onUseAnyway}>
+              Trotzdem verwenden
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

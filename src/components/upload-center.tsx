@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScanCamera, type PositioningState } from "@/components/scan-camera";
 import { ScanProcessing } from "@/components/scan-processing";
+import { ScanQualityWarning } from "@/components/scan-quality-warning";
 import { ScanReview } from "@/components/scan-review";
 import {
   uploadCenterSections,
@@ -27,22 +28,38 @@ type MobileView =
   | "scan-intro"
   | "camera"
   | "processing"
-  | "review";
+  | "review"
+  | "warning";
 
 const PROCESSING_AUTO_ADVANCE_MS = 1250;
-const LAST_SCAN_FLOW_STEP = 5;
+const LAST_SCAN_FLOW_STEP = 11;
 
 function getScanFlowStep(
   view: MobileView,
   positioningState: PositioningState,
   scanPage: number,
+  page2CameraIncomplete: boolean,
+  page2CaptureTruncated: boolean,
 ): number | null {
   if (view === "camera") {
-    if (scanPage === 2) return 5;
+    if (scanPage === 2) {
+      return page2CameraIncomplete ? 5 : 9;
+    }
     return positioningState - 1;
   }
-  if (view === "processing") return 3;
-  if (view === "review") return 4;
+  if (view === "processing") {
+    if (scanPage === 2) {
+      return page2CameraIncomplete ? 6 : 10;
+    }
+    return 3;
+  }
+  if (view === "warning") return 7;
+  if (view === "review") {
+    if (scanPage === 2) {
+      return page2CaptureTruncated ? 8 : 11;
+    }
+    return 4;
+  }
   return null;
 }
 
@@ -251,6 +268,7 @@ export function UploadCenter({
   const introRef = useRef<HTMLDivElement>(null);
   const savedScrollTop = useRef(0);
   const processingAutoAdvance = useRef(false);
+  const processingNextView = useRef<"review" | "warning">("review");
   const [selectedId, setSelectedId] = useState<string | null>(
     highlightDocId ?? null,
   );
@@ -261,6 +279,8 @@ export function UploadCenter({
     useState(false);
   const [positioningState, setPositioningState] = useState<PositioningState>(1);
   const [scanPage, setScanPage] = useState(1);
+  const [page2CameraIncomplete, setPage2CameraIncomplete] = useState(true);
+  const [page2CaptureTruncated, setPage2CaptureTruncated] = useState(false);
 
   const updateStickyHeader = () => {
     const scrollEl = scrollRef.current;
@@ -302,46 +322,144 @@ export function UploadCenter({
     }
 
     if (step === 3) {
+      setScanPage(1);
       processingAutoAdvance.current = false;
       setView("processing");
       return;
     }
 
     if (step === 4) {
+      setScanPage(1);
       setView("review");
       return;
     }
 
+    if (step === 5) {
+      setScanPage(2);
+      setPage2CameraIncomplete(true);
+      setPage2CaptureTruncated(false);
+      setPositioningState(1);
+      setView("camera");
+      return;
+    }
+
+    if (step === 6) {
+      setScanPage(2);
+      setPage2CameraIncomplete(true);
+      processingAutoAdvance.current = false;
+      setView("processing");
+      return;
+    }
+
+    if (step === 7) {
+      setScanPage(2);
+      setPage2CameraIncomplete(true);
+      setView("warning");
+      return;
+    }
+
+    if (step === 8) {
+      setScanPage(2);
+      setPage2CaptureTruncated(true);
+      setView("review");
+      return;
+    }
+
+    if (step === 9) {
+      setScanPage(2);
+      setPage2CameraIncomplete(false);
+      setPage2CaptureTruncated(false);
+      setPositioningState(3);
+      setView("camera");
+      return;
+    }
+
+    if (step === 10) {
+      setScanPage(2);
+      setPage2CameraIncomplete(false);
+      processingAutoAdvance.current = false;
+      setView("processing");
+      return;
+    }
+
     setScanPage(2);
-    setPositioningState(3);
-    setView("camera");
+    setPage2CaptureTruncated(false);
+    setView("review");
   }, []);
 
   const retreatScanFlow = useCallback(() => {
-    const step = getScanFlowStep(view, positioningState, scanPage);
+    const step = getScanFlowStep(
+      view,
+      positioningState,
+      scanPage,
+      page2CameraIncomplete,
+      page2CaptureTruncated,
+    );
     if (step === null || step <= 0) return;
     goToScanFlowStep(step - 1);
-  }, [view, positioningState, scanPage, goToScanFlowStep]);
+  }, [
+    view,
+    positioningState,
+    scanPage,
+    page2CameraIncomplete,
+    page2CaptureTruncated,
+    goToScanFlowStep,
+  ]);
 
   const advanceScanFlow = useCallback(() => {
-    const step = getScanFlowStep(view, positioningState, scanPage);
+    const step = getScanFlowStep(
+      view,
+      positioningState,
+      scanPage,
+      page2CameraIncomplete,
+      page2CaptureTruncated,
+    );
     if (step === null || step >= LAST_SCAN_FLOW_STEP) return;
     goToScanFlowStep(step + 1);
-  }, [view, positioningState, scanPage, goToScanFlowStep]);
+  }, [
+    view,
+    positioningState,
+    scanPage,
+    page2CameraIncomplete,
+    page2CaptureTruncated,
+    goToScanFlowStep,
+  ]);
 
   const handleCapture = () => {
-    processingAutoAdvance.current = scanPage === 1;
+    processingAutoAdvance.current = true;
+    if (scanPage === 1) {
+      processingNextView.current = "review";
+    } else if (page2CameraIncomplete) {
+      processingNextView.current = "warning";
+    } else {
+      processingNextView.current = "review";
+    }
     setView("processing");
   };
 
   const handleAddPage = () => {
     setScanPage(2);
+    setPage2CameraIncomplete(true);
+    setPage2CaptureTruncated(false);
+    setPositioningState(1);
+    setView("camera");
+  };
+
+  const handleRetakePage2Camera = () => {
+    setPage2CameraIncomplete(false);
     setPositioningState(3);
     setView("camera");
   };
 
+  const handleWarningUseAnyway = () => {
+    setPage2CaptureTruncated(true);
+    setView("review");
+  };
+
   const handleAbortScanSession = () => {
     setScanPage(1);
+    setPage2CameraIncomplete(true);
+    setPage2CaptureTruncated(false);
     setPositioningState(1);
     setView("overview");
   };
@@ -358,7 +476,13 @@ export function UploadCenter({
     }
   };
 
-  const scanFlowStep = getScanFlowStep(view, positioningState, scanPage);
+  const scanFlowStep = getScanFlowStep(
+    view,
+    positioningState,
+    scanPage,
+    page2CameraIncomplete,
+    page2CaptureTruncated,
+  );
 
   useEffect(() => {
     if (scanFlowStep === null) {
@@ -383,12 +507,15 @@ export function UploadCenter({
     if (view !== "processing" || !processingAutoAdvance.current) return;
 
     const timer = window.setTimeout(() => {
-      setView("review");
+      if (processingNextView.current === "review" && scanPage === 2) {
+        setPage2CaptureTruncated(false);
+      }
+      setView(processingNextView.current);
       processingAutoAdvance.current = false;
     }, PROCESSING_AUTO_ADVANCE_MS);
 
     return () => window.clearTimeout(timer);
-  }, [view]);
+  }, [view, scanPage]);
 
   useEffect(() => {
     if (view !== "overview" || !scrollRef.current) return;
@@ -422,6 +549,7 @@ export function UploadCenter({
         onClose={handleBackFromCamera}
         onCapture={handleCapture}
         positioningState={positioningState}
+        incompleteCapture={scanPage === 2 && page2CameraIncomplete}
       />
     );
   }
@@ -430,11 +558,26 @@ export function UploadCenter({
     return <ScanProcessing />;
   }
 
+  if (view === "warning") {
+    return (
+      <ScanQualityWarning
+        onRetake={handleRetakePage2Camera}
+        onUseAnyway={handleWarningUseAnyway}
+      />
+    );
+  }
+
   if (view === "review") {
     return (
       <ScanReview
-        pageNumber={1}
-        onAddPage={handleAddPage}
+        pageIndicator={scanPage === 2 ? "Seite 2/2" : `Seite ${scanPage}`}
+        cutOff={scanPage === 2 && page2CaptureTruncated}
+        onRetake={
+          scanPage === 2 && page2CaptureTruncated
+            ? handleRetakePage2Camera
+            : undefined
+        }
+        onAddPage={scanPage === 1 ? handleAddPage : undefined}
         onAbortScan={handleAbortScanSession}
       />
     );

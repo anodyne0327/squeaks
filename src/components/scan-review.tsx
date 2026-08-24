@@ -2,20 +2,8 @@ import { useState } from "react";
 import { Check, Crop, Plus, RotateCcw } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ProcessedPagePreview } from "@/components/scan-document-preview";
 import { ScanFlowHeader } from "@/components/scan-flow-header";
-
-function ProcessedPageLines() {
-  return (
-    <div className="space-y-2 pt-2">
-      {Array.from({ length: 18 }, (_, i) => (
-        <div
-          key={i}
-          className={`h-1 bg-foreground/20 ${i % 4 === 1 ? "w-4/5" : i % 4 === 2 ? "w-3/5" : i % 4 === 3 ? "w-11/12" : "w-full"}`}
-        />
-      ))}
-    </div>
-  );
-}
 
 function PageAction({
   icon: Icon,
@@ -51,12 +39,16 @@ function PageAction({
 }
 
 export function ScanReview({
-  pageNumber,
+  pageIndicator,
+  cutOff = false,
+  onRetake,
   onAddPage,
   onAbortScan,
 }: {
-  pageNumber: number;
-  onAddPage: () => void;
+  pageIndicator: string;
+  cutOff?: boolean;
+  onRetake?: () => void;
+  onAddPage?: () => void;
   onAbortScan: () => void;
 }) {
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
@@ -75,20 +67,22 @@ export function ScanReview({
             aria-hidden
           />
           <div className="flex min-h-0 flex-1 items-center justify-center pt-6">
-            <div className="h-full max-h-[520px] w-full border border-foreground/40 bg-background p-4">
-              <ProcessedPageLines />
-            </div>
+            <ProcessedPagePreview cutOff={cutOff} />
           </div>
         </div>
 
         <p className="shrink-0 py-3 text-center text-sm font-bold">
-          Seite {pageNumber}
+          {pageIndicator}
         </p>
       </div>
 
       <div className="shrink-0 border-t bg-background px-4 py-4">
         <div className="flex items-end justify-between gap-2">
-          <PageAction icon={RotateCcw} label="Erneut aufnehmen" />
+          <PageAction
+            icon={RotateCcw}
+            label="Erneut aufnehmen"
+            onClick={onRetake}
+          />
           <PageAction
             icon={Plus}
             label="Seite hinzufügen"
