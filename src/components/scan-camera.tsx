@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { ScanFlowHeader } from "@/components/scan-flow-header";
 
 export type PositioningState = 1 | 2 | 3;
 
@@ -98,19 +98,12 @@ export function ScanCamera({
 }) {
   return (
     <div className="relative flex h-full flex-col bg-foreground text-background">
+      <ScanFlowHeader onClose={onClose} variant="dark" />
+
       {/* Camera viewport */}
       <div className="relative min-h-0 flex-1 overflow-hidden">
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute left-3 top-3 z-20 text-background hover:opacity-80"
-          aria-label="Schließen"
-        >
-          <X className="h-5 w-5" />
-        </button>
-
         {/* Feedback banner */}
-        <div className="absolute left-4 right-4 top-14 z-20">
+        <div className="absolute left-4 right-4 top-3 z-20">
           <p className="rounded-md bg-background px-4 py-2.5 text-center text-sm font-bold text-foreground">
             {FEEDBACK[positioningState]}
           </p>

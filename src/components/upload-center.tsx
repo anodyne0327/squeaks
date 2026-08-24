@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScanCamera, type PositioningState } from "@/components/scan-camera";
 import { ScanProcessing } from "@/components/scan-processing";
+import { ScanReview } from "@/components/scan-review";
 import {
   uploadCenterSections,
   uploadStatusText,
@@ -21,17 +22,27 @@ const INTRO_TITLE = "Dokumente hinzufügen";
 const INTRO_TEXT =
   "Scannen oder laden Sie hier Dokumente mit Ihrem Smartphone hoch. Sie werden automatisch Ihrem Antrag hinzugefügt.";
 
-type MobileView = "overview" | "scan-intro" | "camera" | "processing" | "blank";
+type MobileView =
+  | "overview"
+  | "scan-intro"
+  | "camera"
+  | "processing"
+  | "review";
 
 const PROCESSING_AUTO_ADVANCE_MS = 1250;
+const LAST_SCAN_FLOW_STEP = 5;
 
 function getScanFlowStep(
   view: MobileView,
   positioningState: PositioningState,
+  scanPage: number,
 ): number | null {
-  if (view === "camera") return positioningState - 1;
+  if (view === "camera") {
+    if (scanPage === 2) return 5;
+    return positioningState - 1;
+  }
   if (view === "processing") return 3;
-  if (view === "blank") return 4;
+  if (view === "review") return 4;
   return null;
 }
 
@@ -249,6 +260,7 @@ export function UploadCenter({
   const [hasSeenScanIntroThisSession, setHasSeenScanIntroThisSession] =
     useState(false);
   const [positioningState, setPositioningState] = useState<PositioningState>(1);
+  const [scanPage, setScanPage] = useState(1);
 
   const updateStickyHeader = () => {
     const scrollEl = scrollRef.current;
@@ -264,6 +276,7 @@ export function UploadCenter({
 
   const handleStartScan = () => {
     setHasSeenScanIntroThisSession(true);
+    setScanPage(1);
     setPositioningState(1);
     setView("camera");
   };
@@ -271,6 +284,7 @@ export function UploadCenter({
   const goToScanFlow = () => {
     savedScrollTop.current = scrollRef.current?.scrollTop ?? 0;
     setSourceSheetOpen(false);
+    setScanPage(1);
     setPositioningState(1);
     if (hasSeenScanIntroThisSession) {
       setView("camera");
@@ -281,6 +295,7 @@ export function UploadCenter({
 
   const goToScanFlowStep = useCallback((step: number) => {
     if (step <= 2) {
+      setScanPage(1);
       setView("camera");
       setPositioningState((step + 1) as PositioningState);
       return;
@@ -292,24 +307,43 @@ export function UploadCenter({
       return;
     }
 
-    setView("blank");
+    if (step === 4) {
+      setView("review");
+      return;
+    }
+
+    setScanPage(2);
+    setPositioningState(3);
+    setView("camera");
   }, []);
 
   const retreatScanFlow = useCallback(() => {
-    const step = getScanFlowStep(view, positioningState);
+    const step = getScanFlowStep(view, positioningState, scanPage);
     if (step === null || step <= 0) return;
     goToScanFlowStep(step - 1);
-  }, [view, positioningState, goToScanFlowStep]);
+  }, [view, positioningState, scanPage, goToScanFlowStep]);
 
   const advanceScanFlow = useCallback(() => {
-    const step = getScanFlowStep(view, positioningState);
-    if (step === null || step >= 4) return;
+    const step = getScanFlowStep(view, positioningState, scanPage);
+    if (step === null || step >= LAST_SCAN_FLOW_STEP) return;
     goToScanFlowStep(step + 1);
-  }, [view, positioningState, goToScanFlowStep]);
+  }, [view, positioningState, scanPage, goToScanFlowStep]);
 
   const handleCapture = () => {
-    processingAutoAdvance.current = true;
+    processingAutoAdvance.current = scanPage === 1;
     setView("processing");
+  };
+
+  const handleAddPage = () => {
+    setScanPage(2);
+    setPositioningState(3);
+    setView("camera");
+  };
+
+  const handleAbortScanSession = () => {
+    setScanPage(1);
+    setPositioningState(1);
+    setView("overview");
   };
 
   const handleBackFromScanIntro = () => {
@@ -324,7 +358,7 @@ export function UploadCenter({
     }
   };
 
-  const scanFlowStep = getScanFlowStep(view, positioningState);
+  const scanFlowStep = getScanFlowStep(view, positioningState, scanPage);
 
   useEffect(() => {
     if (scanFlowStep === null) {
@@ -334,7 +368,7 @@ export function UploadCenter({
 
     onScanPrototypeControls?.({
       canRetreat: scanFlowStep > 0,
-      canAdvance: scanFlowStep < 4,
+      canAdvance: scanFlowStep < LAST_SCAN_FLOW_STEP,
       retreat: retreatScanFlow,
       advance: advanceScanFlow,
     });
@@ -349,7 +383,7 @@ export function UploadCenter({
     if (view !== "processing" || !processingAutoAdvance.current) return;
 
     const timer = window.setTimeout(() => {
-      setView("blank");
+      setView("review");
       processingAutoAdvance.current = false;
     }, PROCESSING_AUTO_ADVANCE_MS);
 
@@ -396,8 +430,14 @@ export function UploadCenter({
     return <ScanProcessing />;
   }
 
-  if (view === "blank") {
-    return <div className="h-full bg-background" />;
+  if (view === "review") {
+    return (
+      <ScanReview
+        pageNumber={1}
+        onAddPage={handleAddPage}
+        onAbortScan={handleAbortScanSession}
+      />
+    );
   }
 
   return (
