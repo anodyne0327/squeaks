@@ -120,6 +120,7 @@ export function ScanCamera({
   duplicateCapture = false,
   onDeviceAffordanceClick,
   emptyViewport = false,
+  showDetectionFrame = false,
 }: {
   onClose: () => void;
   onCapture: () => void;
@@ -130,6 +131,7 @@ export function ScanCamera({
   duplicateCapture?: boolean;
   onDeviceAffordanceClick?: () => void;
   emptyViewport?: boolean;
+  showDetectionFrame?: boolean;
 }) {
   const feedback = duplicateCapture
     ? "Diese Seite wurde möglicherweise bereits erfasst"
@@ -162,6 +164,12 @@ export function ScanCamera({
               state={positioningState}
               tooFarCapture={tooFarCapture}
             />
+          </div>
+        )}
+
+        {emptyViewport && showDetectionFrame && (
+          <div className="absolute inset-0 overflow-hidden">
+            <DetectionFrame state={3} />
           </div>
         )}
       </div>

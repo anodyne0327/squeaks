@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Crop, Plus, RotateCcw } from "lucide-react";
+import { Check, Crop, Image as ImageIcon, Plus, RotateCcw } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { DocumentPageId } from "@/components/scan-document-content";
@@ -47,6 +47,8 @@ export function ScanReview({
   previewVariant = "default",
   previewPageId = "P1",
   onRetake,
+  retakeLabel = "Erneut aufnehmen",
+  retakeIcon: RetakeIcon = RotateCcw,
   onCrop,
   onAddPage,
   onFinish,
@@ -56,6 +58,8 @@ export function ScanReview({
   previewVariant?: ProcessedPagePreviewVariant;
   previewPageId?: DocumentPageId;
   onRetake?: () => void;
+  retakeLabel?: string;
+  retakeIcon?: LucideIcon;
   onCrop?: () => void;
   onAddPage?: () => void;
   onFinish?: () => void;
@@ -96,8 +100,8 @@ export function ScanReview({
       <div className="shrink-0 border-t bg-background px-4 py-4">
         <div className="flex items-end justify-between gap-2">
           <PageAction
-            icon={RotateCcw}
-            label="Erneut aufnehmen"
+            icon={RetakeIcon}
+            label={retakeLabel}
             onClick={onRetake}
           />
           <PageAction

@@ -6,7 +6,11 @@ import {
 import type { DocumentPageId } from "@/components/scan-document-content";
 import { ScanFlowHeader } from "@/components/scan-flow-header";
 
-export type QualityWarningVariant = "truncated" | "tooFar" | "duplicate";
+export type QualityWarningVariant =
+  | "truncated"
+  | "tooFar"
+  | "duplicate"
+  | "blurry";
 
 const WARNING_COPY: Record<
   QualityWarningVariant,
@@ -27,6 +31,11 @@ const WARNING_COPY: Record<
     description:
       "Diese Seite scheint bereits vorhanden zu sein. Möchten Sie sie erneut aufnehmen oder trotzdem verwenden?",
   },
+  blurry: {
+    title: "Bild möglicherweise unscharf",
+    description:
+      "Dieses Bild ist möglicherweise nicht gut lesbar. Sie können das Dokument neu scannen oder das Bild trotzdem verwenden.",
+  },
 };
 
 export function ScanQualityWarning({
@@ -34,11 +43,13 @@ export function ScanQualityWarning({
   previewPageId,
   onRetake,
   onUseAnyway,
+  retakeLabel,
 }: {
   variant: QualityWarningVariant;
   previewPageId: DocumentPageId;
   onRetake: () => void;
   onUseAnyway: () => void;
+  retakeLabel?: string;
 }) {
   const copy = WARNING_COPY[variant];
   const previewVariant: ProcessedPagePreviewVariant =
@@ -46,7 +57,12 @@ export function ScanQualityWarning({
       ? "cutOff"
       : variant === "tooFar"
         ? "tooSmall"
-        : "default";
+        : variant === "blurry"
+          ? "blurry"
+          : "default";
+  const primaryLabel =
+    retakeLabel ??
+    (variant === "blurry" ? "Dokument neu scannen" : "Erneut aufnehmen");
 
   return (
     <div className="relative flex h-full flex-col bg-muted">
@@ -67,7 +83,7 @@ export function ScanQualityWarning({
           <p className="mt-2 text-sm text-muted-foreground">{copy.description}</p>
           <div className="mt-4 space-y-2">
             <Button className="w-full" onClick={onRetake}>
-              Erneut aufnehmen
+              {primaryLabel}
             </Button>
             <Button variant="outline" className="w-full" onClick={onUseAnyway}>
               Trotzdem verwenden

@@ -1,8 +1,12 @@
 export function ScanDeviceSourceChooser({
+  onSelectPhotoLibrary,
+  photoLibraryEnabled = false,
   onSelectFile,
   fileSelectEnabled = false,
   onDismiss,
 }: {
+  onSelectPhotoLibrary?: () => void;
+  photoLibraryEnabled?: boolean;
   onSelectFile?: () => void;
   fileSelectEnabled?: boolean;
   onDismiss: () => void;
@@ -21,8 +25,11 @@ export function ScanDeviceSourceChooser({
         <div className="overflow-hidden rounded-lg border bg-background">
           <button
             type="button"
-            className="w-full border-b px-4 py-3.5 text-left text-sm text-muted-foreground"
-            disabled
+            onClick={photoLibraryEnabled ? onSelectPhotoLibrary : undefined}
+            disabled={!photoLibraryEnabled}
+            className={`w-full border-b px-4 py-3.5 text-left text-sm ${
+              photoLibraryEnabled ? "font-bold" : "text-muted-foreground"
+            }`}
           >
             Fotomediathek
           </button>

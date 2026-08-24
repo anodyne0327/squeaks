@@ -1,4 +1,5 @@
 import { Check, X } from "lucide-react";
+import type { DocumentPageId } from "@/components/scan-document-content";
 import {
   TooFarCaptureDimOverlay,
   TooFarCapturePreview,
@@ -19,9 +20,11 @@ function CropBoundary() {
 export function ScanCropEditor({
   onCancel,
   onApply,
+  pageId = "P3",
 }: {
   onCancel: () => void;
   onApply: () => void;
+  pageId?: DocumentPageId;
 }) {
   return (
     <div className="relative flex h-full flex-col bg-foreground text-background">
@@ -47,7 +50,7 @@ export function ScanCropEditor({
 
       <div className="relative mx-4 mb-4 min-h-0 flex-1">
         <div className="relative h-full min-h-[420px] overflow-hidden">
-          <TooFarCapturePreview />
+          <TooFarCapturePreview pageId={pageId} />
           <TooFarCaptureDimOverlay />
           <CropBoundary />
         </div>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Check,
   ChevronDown,
@@ -143,12 +143,38 @@ function OverviewSection({
 
 export function MobileDocumentOverview({
   onScan,
+  extraFilesByDocumentId,
+  expandedSections: expandedSectionsProp,
 }: {
   onScan?: (docId: string) => void;
+  extraFilesByDocumentId?: Record<string, string[]>;
+  expandedSections?: Set<string>;
 }) {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    () => new Set(),
+    () => expandedSectionsProp ?? new Set(),
   );
+
+  useEffect(() => {
+    if (expandedSectionsProp) {
+      setExpandedSections(new Set(expandedSectionsProp));
+    }
+  }, [expandedSectionsProp]);
+
+  const sections = useMemo(() => {
+    if (!extraFilesByDocumentId) return mobileDocumentOverviewSections;
+
+    return mobileDocumentOverviewSections.map((section) => ({
+      ...section,
+      documents: section.documents.map((document) => {
+        const extraFiles = extraFilesByDocumentId[document.id] ?? [];
+        const mergedFiles = [...document.files];
+        for (const file of extraFiles) {
+          if (!mergedFiles.includes(file)) mergedFiles.push(file);
+        }
+        return { ...document, files: mergedFiles };
+      }),
+    }));
+  }, [extraFilesByDocumentId]);
 
   const toggleSection = (title: string) => {
     setExpandedSections((prev) => {
@@ -172,7 +198,7 @@ export function MobileDocumentOverview({
         </h1>
 
         <div className="space-y-3">
-          {mobileDocumentOverviewSections.map((section) => (
+          {sections.map((section) => (
             <OverviewSection
               key={section.title}
               title={section.title}
