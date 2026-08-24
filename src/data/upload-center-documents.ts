@@ -182,7 +182,6 @@ export const desktopHandoverDocIds: Record<string, string> = {
 };
 
 export function uploadStatusText(count: number): string {
-  if (count === 0) return "Noch keine Dateien hochgeladen";
   if (count === 1) return "1 Datei hochgeladen";
   return `${count} Dateien hochgeladen`;
 }

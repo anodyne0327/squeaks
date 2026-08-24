@@ -14,6 +14,7 @@ import { ScanCamera, type PositioningState } from "@/components/scan-camera";
 import { ScanDeviceFilePicker } from "@/components/scan-device-file-picker";
 import { ScanDeviceSourceChooser } from "@/components/scan-device-source-chooser";
 import { ScanCropEditor } from "@/components/scan-crop-editor";
+import { ScanDocumentReview } from "@/components/scan-document-review";
 import { ScanProcessing } from "@/components/scan-processing";
 import { ScanQualityWarning } from "@/components/scan-quality-warning";
 import { ScanReview } from "@/components/scan-review";
@@ -26,6 +27,11 @@ import {
   uploadCenterSections,
   uploadStatusText,
 } from "@/data/upload-center-documents";
+import {
+  initialPersonalausweisUploadCount,
+  isPersonalausweisScanComplete,
+  markPersonalausweisScanComplete,
+} from "@/data/prototype-scan-sync";
 
 const INTRO_TITLE = "Dokumente hinzufügen";
 const INTRO_TEXT =
@@ -40,11 +46,21 @@ type MobileView =
   | "processing"
   | "review"
   | "warning"
-  | "crop";
+  | "crop"
+  | "document-review";
 
 const PROCESSING_AUTO_ADVANCE_MS = 1250;
-const LAST_SCAN_FLOW_STEP = 26;
+const LAST_SCAN_FLOW_STEP = 30;
 const LAST_FILE_IMPORT_STEP = 3;
+const DEFAULT_DOCUMENT_NAME = "2026_08_24_Personalausweis_oder_Reisepass";
+const SCAN_TARGET_DOC_ID = "antragstellung-personalausweis";
+const INITIAL_ASSEMBLED_PAGES: DocumentPageId[] = [
+  "P1",
+  "P2",
+  "P3",
+  "P3",
+  "P4",
+];
 
 function getScanFlowStep(
   view: MobileView,
@@ -55,9 +71,11 @@ function getScanFlowStep(
   page3CaptureTooSmall: boolean,
   page3Cropped: boolean,
 ): number | null {
+  if (view === "document-review") return 27;
   if (view === "device-source" && scanPage === 5) return 23;
   if (view === "device-picker" && scanPage === 5) return 24;
   if (view === "camera") {
+    if (scanPage === 6) return 28;
     if (scanPage === 5) return 22;
     if (scanPage === 4) return 18;
     if (scanPage === 3) return 12;
@@ -67,6 +85,7 @@ function getScanFlowStep(
     return positioningState - 1;
   }
   if (view === "processing") {
+    if (scanPage === 6) return 29;
     if (scanPage === 5) return 25;
     if (scanPage === 4) return 19;
     if (scanPage === 3) return 13;
@@ -82,6 +101,7 @@ function getScanFlowStep(
   }
   if (view === "crop") return 16;
   if (view === "review") {
+    if (scanPage === 6) return 30;
     if (scanPage === 5) return 26;
     if (scanPage === 4) return 21;
     if (scanPage === 3) {
@@ -280,8 +300,8 @@ function DocumentRow({
             {!hasUploads && <span className="w-4 shrink-0" aria-hidden />}
             <span className="text-sm font-bold leading-snug">{label}</span>
           </div>
-          <p className="pl-6 text-xs text-muted-foreground">
-            {uploadStatusText(uploadedCount)}
+          <p className="min-h-4 pl-6 text-xs leading-4 text-muted-foreground">
+            {hasUploads ? uploadStatusText(uploadedCount) : null}
           </p>
         </div>
         <Button
@@ -320,6 +340,23 @@ export function UploadCenter({
   const [selectedId, setSelectedId] = useState<string | null>(
     highlightDocId ?? null,
   );
+  const [documentUploadCounts, setDocumentUploadCounts] = useState<
+    Record<string, number>
+  >(() => {
+    const counts: Record<string, number> = {};
+    for (const section of uploadCenterSections) {
+      for (const doc of section.documents) {
+        counts[doc.id] =
+          doc.id === SCAN_TARGET_DOC_ID
+            ? initialPersonalausweisUploadCount(doc.uploadedCount)
+            : doc.uploadedCount;
+      }
+    }
+    return counts;
+  });
+  const [activeScanDocId, setActiveScanDocId] = useState<string | null>(
+    highlightDocId ?? SCAN_TARGET_DOC_ID,
+  );
   const [showStickyHeader, setShowStickyHeader] = useState(!!highlightDocId);
   const [sourceSheetOpen, setSourceSheetOpen] = useState(false);
   const [view, setView] = useState<MobileView>("overview");
@@ -334,6 +371,11 @@ export function UploadCenter({
   const [isFileImportPath, setIsFileImportPath] = useState(false);
   const [processingFromDeviceUpload, setProcessingFromDeviceUpload] =
     useState(false);
+  const [documentName, setDocumentName] = useState(DEFAULT_DOCUMENT_NAME);
+  const [assembledPages, setAssembledPages] = useState<DocumentPageId[]>(
+    INITIAL_ASSEMBLED_PAGES,
+  );
+  const [returnToDocumentReview, setReturnToDocumentReview] = useState(false);
 
   const updateStickyHeader = () => {
     const scrollEl = scrollRef.current;
@@ -344,6 +386,7 @@ export function UploadCenter({
 
   const handleAdd = (docId: string) => {
     setSelectedId(docId);
+    setActiveScanDocId(docId);
     setSourceSheetOpen(true);
   };
 
@@ -590,8 +633,54 @@ export function UploadCenter({
       return;
     }
 
-    setScanPage(5);
+    if (step === 26) {
+      setScanPage(5);
+      setView("review");
+      return;
+    }
+
+    if (step === 27) {
+      setAssembledPages(INITIAL_ASSEMBLED_PAGES);
+      setView("document-review");
+      return;
+    }
+
+    if (step === 28) {
+      setReturnToDocumentReview(true);
+      setPage2CameraIncomplete(true);
+      setPage2CaptureTruncated(false);
+      setPage3CaptureTooSmall(false);
+      setPage3Cropped(false);
+      setScanPage(6);
+      setPositioningState(3);
+      setView("camera");
+      return;
+    }
+
+    if (step === 29) {
+      setReturnToDocumentReview(true);
+      setScanPage(6);
+      setProcessingFromDeviceUpload(false);
+      processingAutoAdvance.current = false;
+      setView("processing");
+      return;
+    }
+
+    setReturnToDocumentReview(true);
+    setScanPage(6);
     setView("review");
+  }, []);
+
+  const resetScanSessionState = useCallback(() => {
+    setScanPage(1);
+    setPage2CameraIncomplete(true);
+    setPage2CaptureTruncated(false);
+    setPage3CaptureTooSmall(false);
+    setPage3Cropped(false);
+    setPositioningState(1);
+    setReturnToDocumentReview(false);
+    setAssembledPages(INITIAL_ASSEMBLED_PAGES);
+    setDocumentName(DEFAULT_DOCUMENT_NAME);
   }, []);
 
   const retreatFromFileImportEntry = useCallback(() => {
@@ -695,7 +784,7 @@ export function UploadCenter({
   const handleCapture = () => {
     setProcessingFromDeviceUpload(false);
     processingAutoAdvance.current = true;
-    if (scanPage === 1 || scanPage === 5) {
+    if (scanPage === 1 || scanPage === 5 || scanPage === 6) {
       processingNextView.current = "review";
     } else if (scanPage === 4) {
       processingNextView.current = "warning";
@@ -785,14 +874,66 @@ export function UploadCenter({
     setView("review");
   };
 
-  const handleAbortScanSession = () => {
-    setIsFileImportPath(false);
-    setScanPage(1);
+  const handleFinishSinglePageReview = () => {
+    if (scanPage === 6 && returnToDocumentReview) {
+      setAssembledPages((pages) => [...pages, getDocumentPageId(6)]);
+      setReturnToDocumentReview(false);
+      setView("document-review");
+      return;
+    }
+
+    if (scanPage === 5) {
+      setAssembledPages(INITIAL_ASSEMBLED_PAGES);
+      setView("document-review");
+    }
+  };
+
+  const handleDocumentReviewBack = () => {
+    setScanPage(assembledPages.length);
+    setView("review");
+  };
+
+  const handleDocumentReviewAddPage = () => {
+    setReturnToDocumentReview(true);
     setPage2CameraIncomplete(true);
     setPage2CaptureTruncated(false);
     setPage3CaptureTooSmall(false);
     setPage3Cropped(false);
-    setPositioningState(1);
+    setScanPage(6);
+    setPositioningState(3);
+    setView("camera");
+  };
+
+  const handleDocumentReviewRestart = () => {
+    resetScanSessionState();
+    setView("camera");
+  };
+
+  const handleDocumentReviewFinish = () => {
+    const docId = activeScanDocId ?? SCAN_TARGET_DOC_ID;
+
+    if (docId === SCAN_TARGET_DOC_ID) {
+      if (!isPersonalausweisScanComplete()) {
+        markPersonalausweisScanComplete();
+        setDocumentUploadCounts((counts) => ({
+          ...counts,
+          [docId]: (counts[docId] ?? 0) + 1,
+        }));
+      }
+    } else {
+      setDocumentUploadCounts((counts) => ({
+        ...counts,
+        [docId]: (counts[docId] ?? 0) + 1,
+      }));
+    }
+
+    setSelectedId(docId);
+    setView("overview");
+  };
+
+  const handleAbortScanSession = () => {
+    setIsFileImportPath(false);
+    resetScanSessionState();
     setView("overview");
   };
 
@@ -969,6 +1110,20 @@ export function UploadCenter({
     );
   }
 
+  if (view === "document-review") {
+    return (
+      <ScanDocumentReview
+        documentName={documentName}
+        onDocumentNameChange={setDocumentName}
+        pages={assembledPages}
+        onBack={handleDocumentReviewBack}
+        onRestart={handleDocumentReviewRestart}
+        onFinish={handleDocumentReviewFinish}
+        onAddPage={handleDocumentReviewAddPage}
+      />
+    );
+  }
+
   if (view === "review") {
     return (
       <ScanReview
@@ -991,6 +1146,11 @@ export function UploadCenter({
           scanPage === 3 ||
           scanPage === 4
             ? handleAddPage
+            : undefined
+        }
+        onFinish={
+          scanPage === 5 || (scanPage === 6 && returnToDocumentReview)
+            ? handleFinishSinglePageReview
             : undefined
         }
         onAbortScan={handleAbortScanSession}
@@ -1021,7 +1181,7 @@ export function UploadCenter({
                     key={doc.id}
                     id={doc.id}
                     label={doc.label}
-                    uploadedCount={doc.uploadedCount}
+                    uploadedCount={documentUploadCounts[doc.id] ?? 0}
                     selected={selectedId === doc.id}
                     onAdd={() => handleAdd(doc.id)}
                   />

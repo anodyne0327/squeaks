@@ -49,6 +49,7 @@ export function ScanReview({
   onRetake,
   onCrop,
   onAddPage,
+  onFinish,
   onAbortScan,
 }: {
   pageIndicator: string;
@@ -57,6 +58,7 @@ export function ScanReview({
   onRetake?: () => void;
   onCrop?: () => void;
   onAddPage?: () => void;
+  onFinish?: () => void;
   onAbortScan: () => void;
 }) {
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
@@ -104,7 +106,7 @@ export function ScanReview({
             emphasized
             onClick={onAddPage}
           />
-          <PageAction icon={Check} label="Fertig" />
+          <PageAction icon={Check} label="Fertig" onClick={onFinish} />
         </div>
       </div>
 

@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, ChevronLeft, Plus, Smartphone, Upload } from "lucide-react";
 import { Link } from "react-router";
 import { FileSelectorModal } from "@/components/file-selector-modal";
 import { HandoverModal } from "@/components/handover-modal";
 import { UploadedFileList } from "@/components/uploaded-file-list";
 import { desktopHandoverDocIds } from "@/data/upload-center-documents";
+import { withPersonalausweisScanFile } from "@/data/prototype-scan-sync";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -122,8 +123,10 @@ const initialFiles: Record<string, string[]> = {
 };
 
 export default function AntragNachweiseV1() {
-  const [filesByReq, setFilesByReq] =
-    useState<Record<string, string[]>>(initialFiles);
+  const [filesByReq, setFilesByReq] = useState<Record<string, string[]>>(() => ({
+    ...initialFiles,
+    personalausweis: withPersonalausweisScanFile(initialFiles.personalausweis),
+  }));
   const [pickerOpen, setPickerOpen] = useState(false);
   const [handoverOpen, setHandoverOpen] = useState(false);
   const [handoverDocId, setHandoverDocId] = useState<string | null>(null);
@@ -153,6 +156,19 @@ export default function AntragNachweiseV1() {
       [reqId]: prev[reqId].filter((_, i) => i !== index),
     }));
   };
+
+  useEffect(() => {
+    const syncPersonalausweisFiles = () => {
+      setFilesByReq((prev) => ({
+        ...prev,
+        personalausweis: withPersonalausweisScanFile(initialFiles.personalausweis),
+      }));
+    };
+
+    window.addEventListener("storage", syncPersonalausweisFiles);
+    return () =>
+      window.removeEventListener("storage", syncPersonalausweisFiles);
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">

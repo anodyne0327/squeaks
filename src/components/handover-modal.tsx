@@ -6,6 +6,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { isPersonalausweisScanComplete } from "@/data/prototype-scan-sync";
+
+const PERSONALAUSWEIS_DOC_ID = "antragstellung-personalausweis";
 
 function QrCodeGrid() {
   const size = 21;
@@ -88,6 +91,15 @@ function ConnectedState() {
   );
 }
 
+function CompletedState() {
+  return (
+    <div className="flex items-center gap-2">
+      <Check className="h-4 w-4" />
+      <span className="font-bold">Dokument hinzugefügt</span>
+    </div>
+  );
+}
+
 export function HandoverModal({
   open,
   onOpenChange,
@@ -99,13 +111,35 @@ export function HandoverModal({
 }) {
   const [qrRecognized, setQrRecognized] = useState(false);
   const [connected, setConnected] = useState(false);
+  const [completed, setCompleted] = useState(false);
+  const connectedRef = useRef(false);
+
+  connectedRef.current = connected;
 
   useEffect(() => {
     if (open) {
       setQrRecognized(false);
       setConnected(false);
+      setCompleted(false);
     }
   }, [open]);
+
+  useEffect(() => {
+    const syncCompletion = () => {
+      if (
+        !isPersonalausweisScanComplete() ||
+        highlightDocId !== PERSONALAUSWEIS_DOC_ID ||
+        !connectedRef.current
+      ) {
+        return;
+      }
+
+      setCompleted(true);
+    };
+
+    window.addEventListener("storage", syncCompletion);
+    return () => window.removeEventListener("storage", syncCompletion);
+  }, [highlightDocId]);
 
   const openMobileTab = () => {
     const url = highlightDocId ? `/mobile?doc=${highlightDocId}` : "/mobile";
@@ -123,7 +157,9 @@ export function HandoverModal({
           <DialogTitle>Auf dem Smartphone fortfahren</DialogTitle>
         </DialogHeader>
 
-        {connected ? (
+        {completed ? (
+          <CompletedState />
+        ) : connected ? (
           <ConnectedState />
         ) : (
           <div className="space-y-6">

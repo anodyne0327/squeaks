@@ -1,9 +1,10 @@
-export type DocumentPageId = "P1" | "P2" | "P3" | "P4";
+export type DocumentPageId = "P1" | "P2" | "P3" | "P4" | "P5";
 
 export function getDocumentPageId(scanPage: number): DocumentPageId {
   if (scanPage === 1) return "P1";
   if (scanPage === 2) return "P2";
   if (scanPage === 5) return "P4";
+  if (scanPage === 6) return "P5";
   return "P3";
 }
 
