@@ -6,6 +6,7 @@ import { Layout } from "./layout";
 import Home from "./pages/home";
 import StartPage from "./pages/start";
 import MobilePrototype from "./pages/mobile";
+import MobileStartPage from "./pages/mobile-start";
 import AntragNachweiseV1 from "./pages/v1/antrag-nachweise";
 import AntragNachweiseV2 from "./pages/v2/antrag-nachweise";
 import AntragNachweiseV3 from "./pages/v3/antrag-nachweise";
@@ -22,6 +23,7 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/v2/antrag/nachweise" element={<AntragNachweiseV2 />} />
         <Route path="/v3/antrag/nachweise" element={<AntragNachweiseV3 />} />
         <Route path="/mobile" element={<MobilePrototype />} />
+        <Route path="/mobile-start" element={<MobileStartPage />} />
         <Route
           path="/antrag/nachweise"
           element={<Navigate to="/v1/antrag/nachweise" replace />}

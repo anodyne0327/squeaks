@@ -25,7 +25,7 @@ export default function StartPage() {
             </Card>
           </Link>
 
-          <Link to="/mobile" className="block">
+          <Link to="/mobile-start" className="block">
             <Card className="hover:bg-muted">
               <CardContent className="flex flex-col items-center gap-3 py-10">
                 <Smartphone className="h-8 w-8" />
