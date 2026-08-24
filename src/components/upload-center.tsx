@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { ScanCamera, type PositioningState } from "@/components/scan-camera";
 import { ScanDeviceFilePicker } from "@/components/scan-device-file-picker";
 import { ScanDeviceSourceChooser } from "@/components/scan-device-source-chooser";
+import { ScanPdfFilePicker } from "@/components/scan-pdf-file-picker";
 import { ScanCropEditor } from "@/components/scan-crop-editor";
 import { ScanDocumentReview } from "@/components/scan-document-review";
 import { ScanProcessing } from "@/components/scan-processing";
@@ -28,8 +29,9 @@ import {
   uploadStatusText,
 } from "@/data/upload-center-documents";
 import {
-  initialPersonalausweisUploadCount,
+  initialMobileUploadCount,
   isPersonalausweisScanComplete,
+  markPdfUploaded,
   markPersonalausweisScanComplete,
 } from "@/data/prototype-scan-sync";
 
@@ -40,8 +42,8 @@ const INTRO_TEXT =
 type MobileView =
   | "overview"
   | "scan-intro"
-  | "device-source"
   | "device-picker"
+  | "pdf-picker"
   | "camera"
   | "processing"
   | "review"
@@ -50,8 +52,7 @@ type MobileView =
   | "document-review";
 
 const PROCESSING_AUTO_ADVANCE_MS = 1250;
-const LAST_SCAN_FLOW_STEP = 30;
-const LAST_FILE_IMPORT_STEP = 3;
+const LAST_SCAN_FLOW_STEP = 29;
 const DEFAULT_DOCUMENT_NAME = "2026_08_24_Personalausweis_oder_Reisepass";
 const SCAN_TARGET_DOC_ID = "antragstellung-personalausweis";
 const INITIAL_ASSEMBLED_PAGES: DocumentPageId[] = [
@@ -71,11 +72,10 @@ function getScanFlowStep(
   page3CaptureTooSmall: boolean,
   page3Cropped: boolean,
 ): number | null {
-  if (view === "document-review") return 27;
-  if (view === "device-source" && scanPage === 5) return 23;
-  if (view === "device-picker" && scanPage === 5) return 24;
+  if (view === "document-review") return 26;
+  if (view === "device-picker" && scanPage === 5) return 23;
   if (view === "camera") {
-    if (scanPage === 6) return 28;
+    if (scanPage === 6) return 27;
     if (scanPage === 5) return 22;
     if (scanPage === 4) return 18;
     if (scanPage === 3) return 12;
@@ -85,8 +85,8 @@ function getScanFlowStep(
     return positioningState - 1;
   }
   if (view === "processing") {
-    if (scanPage === 6) return 29;
-    if (scanPage === 5) return 25;
+    if (scanPage === 6) return 28;
+    if (scanPage === 5) return 24;
     if (scanPage === 4) return 19;
     if (scanPage === 3) return 13;
     if (scanPage === 2) {
@@ -101,8 +101,8 @@ function getScanFlowStep(
   }
   if (view === "crop") return 16;
   if (view === "review") {
-    if (scanPage === 6) return 30;
-    if (scanPage === 5) return 26;
+    if (scanPage === 6) return 29;
+    if (scanPage === 5) return 25;
     if (scanPage === 4) return 21;
     if (scanPage === 3) {
       if (page3Cropped) return 17;
@@ -114,18 +114,6 @@ function getScanFlowStep(
     }
     return 4;
   }
-  return null;
-}
-
-function getFileImportFlowStep(
-  view: MobileView,
-  isFileImportPath: boolean,
-): number | null {
-  if (!isFileImportPath) return null;
-  if (view === "device-source") return 0;
-  if (view === "device-picker") return 1;
-  if (view === "processing") return 2;
-  if (view === "review") return 3;
   return null;
 }
 
@@ -346,10 +334,7 @@ export function UploadCenter({
     const counts: Record<string, number> = {};
     for (const section of uploadCenterSections) {
       for (const doc of section.documents) {
-        counts[doc.id] =
-          doc.id === SCAN_TARGET_DOC_ID
-            ? initialPersonalausweisUploadCount(doc.uploadedCount)
-            : doc.uploadedCount;
+        counts[doc.id] = initialMobileUploadCount(doc.id, doc.uploadedCount);
       }
     }
     return counts;
@@ -368,7 +353,6 @@ export function UploadCenter({
   const [page2CaptureTruncated, setPage2CaptureTruncated] = useState(false);
   const [page3CaptureTooSmall, setPage3CaptureTooSmall] = useState(false);
   const [page3Cropped, setPage3Cropped] = useState(false);
-  const [isFileImportPath, setIsFileImportPath] = useState(false);
   const [processingFromDeviceUpload, setProcessingFromDeviceUpload] =
     useState(false);
   const [documentName, setDocumentName] = useState(DEFAULT_DOCUMENT_NAME);
@@ -376,6 +360,7 @@ export function UploadCenter({
     INITIAL_ASSEMBLED_PAGES,
   );
   const [returnToDocumentReview, setReturnToDocumentReview] = useState(false);
+  const [sourceSelectorOpen, setSourceSelectorOpen] = useState(false);
 
   const updateStickyHeader = () => {
     const scrollEl = scrollRef.current;
@@ -400,7 +385,6 @@ export function UploadCenter({
   const goToScanFlow = () => {
     savedScrollTop.current = scrollRef.current?.scrollTop ?? 0;
     setSourceSheetOpen(false);
-    setIsFileImportPath(false);
     setScanPage(1);
     setPositioningState(1);
     if (hasSeenScanIntroThisSession) {
@@ -410,49 +394,28 @@ export function UploadCenter({
     }
   };
 
-  const goToFileImportFlow = () => {
+  const goToPdfUploadFlow = () => {
     savedScrollTop.current = scrollRef.current?.scrollTop ?? 0;
     setSourceSheetOpen(false);
-    setIsFileImportPath(true);
-    setScanPage(1);
-    setPage2CameraIncomplete(true);
-    setPage2CaptureTruncated(false);
-    setPage3CaptureTooSmall(false);
-    setPage3Cropped(false);
-    setPositioningState(1);
-    setView("device-source");
+    setView("pdf-picker");
   };
 
-  const goToFileImportFlowStep = useCallback((step: number) => {
-    setIsFileImportPath(true);
-    setScanPage(1);
-    setPage2CameraIncomplete(true);
-    setPage2CaptureTruncated(false);
-    setPage3CaptureTooSmall(false);
-    setPage3Cropped(false);
+  const handlePdfSelected = (filename: string) => {
+    const docId = activeScanDocId;
+    if (!docId) return;
 
-    if (step <= 0) {
-      setSourceSheetOpen(false);
-      setView("device-source");
-      return;
-    }
-
-    if (step === 1) {
-      setView("device-picker");
-      return;
-    }
-
-    if (step === 2) {
-      setProcessingFromDeviceUpload(true);
-      processingAutoAdvance.current = false;
-      setView("processing");
-      return;
-    }
-
-    setView("review");
-  }, []);
+    markPdfUploaded(docId, filename);
+    setDocumentUploadCounts((counts) => ({
+      ...counts,
+      [docId]: (counts[docId] ?? 0) + 1,
+    }));
+    setSelectedId(docId);
+    setView("overview");
+  };
 
   const goToScanFlowStep = useCallback((step: number) => {
+    setSourceSelectorOpen(false);
+
     if (step <= 2) {
       setScanPage(1);
       setView("camera");
@@ -615,17 +578,11 @@ export function UploadCenter({
 
     if (step === 23) {
       setScanPage(5);
-      setView("device-source");
-      return;
-    }
-
-    if (step === 24) {
-      setScanPage(5);
       setView("device-picker");
       return;
     }
 
-    if (step === 25) {
+    if (step === 24) {
       setScanPage(5);
       setProcessingFromDeviceUpload(true);
       processingAutoAdvance.current = false;
@@ -633,19 +590,19 @@ export function UploadCenter({
       return;
     }
 
-    if (step === 26) {
+    if (step === 25) {
       setScanPage(5);
       setView("review");
       return;
     }
 
-    if (step === 27) {
+    if (step === 26) {
       setAssembledPages(INITIAL_ASSEMBLED_PAGES);
       setView("document-review");
       return;
     }
 
-    if (step === 28) {
+    if (step === 27) {
       setReturnToDocumentReview(true);
       setPage2CameraIncomplete(true);
       setPage2CaptureTruncated(false);
@@ -657,7 +614,7 @@ export function UploadCenter({
       return;
     }
 
-    if (step === 29) {
+    if (step === 28) {
       setReturnToDocumentReview(true);
       setScanPage(6);
       setProcessingFromDeviceUpload(false);
@@ -683,43 +640,17 @@ export function UploadCenter({
     setDocumentName(DEFAULT_DOCUMENT_NAME);
   }, []);
 
-  const retreatFromFileImportEntry = useCallback(() => {
-    setIsFileImportPath(false);
-    setSourceSheetOpen(true);
-    setView("overview");
-  }, []);
-
-  const retreatFileImportFlow = useCallback(() => {
-    const step = getFileImportFlowStep(view, isFileImportPath);
-    if (step === null) return;
-
-    if (step <= 0) {
-      retreatFromFileImportEntry();
-      return;
-    }
-
-    goToFileImportFlowStep(step - 1);
-  }, [view, isFileImportPath, goToFileImportFlowStep, retreatFromFileImportEntry]);
-
-  const advanceFileImportFlow = useCallback(() => {
-    const step = getFileImportFlowStep(view, isFileImportPath);
-    if (step === null || step >= LAST_FILE_IMPORT_STEP) return;
-
-    if (step === 1) {
-      processingAutoAdvance.current = true;
-      processingNextView.current = "review";
-    }
-
-    goToFileImportFlowStep(step + 1);
-  }, [view, isFileImportPath, goToFileImportFlowStep]);
-
-  const handleDeviceSourceSelectFile = () => {
-    setView("device-picker");
+  const handleOpenDeviceSource = () => {
+    setSourceSelectorOpen(true);
   };
 
-  const handleSessionDeviceAffordance = () => {
-    setScanPage(5);
-    setView("device-source");
+  const handleDismissDeviceSource = () => {
+    setSourceSelectorOpen(false);
+  };
+
+  const handleDeviceSourceSelectFile = () => {
+    setSourceSelectorOpen(false);
+    setView("device-picker");
   };
 
   const handleFilePickerSelectDocument = () => {
@@ -764,7 +695,7 @@ export function UploadCenter({
     );
     if (step === null || step >= LAST_SCAN_FLOW_STEP) return;
 
-    if (step === 24) {
+    if (step === 23) {
       processingAutoAdvance.current = true;
       processingNextView.current = "review";
     }
@@ -782,6 +713,7 @@ export function UploadCenter({
   ]);
 
   const handleCapture = () => {
+    setSourceSelectorOpen(false);
     setProcessingFromDeviceUpload(false);
     processingAutoAdvance.current = true;
     if (scanPage === 1 || scanPage === 5 || scanPage === 6) {
@@ -799,8 +731,6 @@ export function UploadCenter({
   };
 
   const handleAddPage = () => {
-    setIsFileImportPath(false);
-
     if (scanPage === 1) {
       setScanPage(2);
       setPage2CameraIncomplete(true);
@@ -932,7 +862,6 @@ export function UploadCenter({
   };
 
   const handleAbortScanSession = () => {
-    setIsFileImportPath(false);
     resetScanSessionState();
     setView("overview");
   };
@@ -942,6 +871,7 @@ export function UploadCenter({
   };
 
   const handleBackFromCamera = () => {
+    setSourceSelectorOpen(false);
     if (hasSeenScanIntroThisSession) {
       setView("scan-intro");
     } else {
@@ -959,12 +889,6 @@ export function UploadCenter({
     page3Cropped,
   );
 
-  const fileImportFlowStep = getFileImportFlowStep(view, isFileImportPath);
-  const activePrototypeStep = isFileImportPath ? fileImportFlowStep : scanFlowStep;
-  const activePrototypeLastStep = isFileImportPath
-    ? LAST_FILE_IMPORT_STEP
-    : LAST_SCAN_FLOW_STEP;
-
   const reviewPageIndicator = `Seite ${scanPage}`;
   const reviewDocumentPageId = getDocumentPageId(scanPage);
 
@@ -976,28 +900,22 @@ export function UploadCenter({
         : "default";
 
   useEffect(() => {
-    if (activePrototypeStep === null) {
+    if (scanFlowStep === null) {
       onScanPrototypeControls?.(null);
       return;
     }
 
     onScanPrototypeControls?.({
-      canRetreat: isFileImportPath
-        ? activePrototypeStep >= 0
-        : activePrototypeStep > 0,
-      canAdvance: activePrototypeStep < activePrototypeLastStep,
-      retreat: isFileImportPath ? retreatFileImportFlow : retreatScanFlow,
-      advance: isFileImportPath ? advanceFileImportFlow : advanceScanFlow,
+      canRetreat: scanFlowStep > 0,
+      canAdvance: scanFlowStep < LAST_SCAN_FLOW_STEP,
+      retreat: retreatScanFlow,
+      advance: advanceScanFlow,
     });
   }, [
-    activePrototypeStep,
-    activePrototypeLastStep,
-    isFileImportPath,
+    scanFlowStep,
     onScanPrototypeControls,
     retreatScanFlow,
     advanceScanFlow,
-    retreatFileImportFlow,
-    advanceFileImportFlow,
   ]);
 
   useEffect(() => {
@@ -1040,35 +958,41 @@ export function UploadCenter({
     );
   }
 
-  if (view === "device-source") {
-    return (
-      <ScanDeviceSourceChooser onSelectFile={handleDeviceSourceSelectFile} />
-    );
+  if (view === "pdf-picker") {
+    return <ScanPdfFilePicker onSelectPdf={handlePdfSelected} />;
   }
 
   if (view === "device-picker") {
     return (
       <ScanDeviceFilePicker
         onSelectDocument={handleFilePickerSelectDocument}
-        documentPageId={scanPage === 5 ? "P4" : "P1"}
+        documentPageId="P4"
       />
     );
   }
 
   if (view === "camera") {
     return (
-      <ScanCamera
-        onClose={handleBackFromCamera}
-        onCapture={handleCapture}
-        positioningState={positioningState}
-        documentPageId={getDocumentPageId(scanPage)}
-        incompleteCapture={scanPage === 2 && page2CameraIncomplete}
-        tooFarCapture={scanPage === 3}
-        duplicateCapture={scanPage === 4}
-        showDeviceAffordance={scanPage === 5}
-        onDeviceAffordanceClick={handleSessionDeviceAffordance}
-        emptyViewport={scanPage === 5}
-      />
+      <div className="relative h-full">
+        <ScanCamera
+          onClose={handleBackFromCamera}
+          onCapture={handleCapture}
+          positioningState={positioningState}
+          documentPageId={getDocumentPageId(scanPage)}
+          incompleteCapture={scanPage === 2 && page2CameraIncomplete}
+          tooFarCapture={scanPage === 3}
+          duplicateCapture={scanPage === 4}
+          onDeviceAffordanceClick={handleOpenDeviceSource}
+          emptyViewport={scanPage === 5}
+        />
+        {sourceSelectorOpen && (
+          <ScanDeviceSourceChooser
+            fileSelectEnabled={scanPage === 5}
+            onSelectFile={handleDeviceSourceSelectFile}
+            onDismiss={handleDismissDeviceSource}
+          />
+        )}
+      </div>
     );
   }
 
@@ -1196,7 +1120,7 @@ export function UploadCenter({
         open={sourceSheetOpen}
         onClose={() => setSourceSheetOpen(false)}
         onScan={goToScanFlow}
-        onSelectFile={goToFileImportFlow}
+        onSelectFile={goToPdfUploadFlow}
       />
     </div>
   );

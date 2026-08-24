@@ -118,7 +118,6 @@ export function ScanCamera({
   incompleteCapture = false,
   tooFarCapture = false,
   duplicateCapture = false,
-  showDeviceAffordance = false,
   onDeviceAffordanceClick,
   emptyViewport = false,
 }: {
@@ -129,7 +128,6 @@ export function ScanCamera({
   incompleteCapture?: boolean;
   tooFarCapture?: boolean;
   duplicateCapture?: boolean;
-  showDeviceAffordance?: boolean;
   onDeviceAffordanceClick?: () => void;
   emptyViewport?: boolean;
 }) {
@@ -169,16 +167,17 @@ export function ScanCamera({
       </div>
 
       <div className="relative flex shrink-0 items-center justify-center bg-foreground py-6">
-        {showDeviceAffordance && (
-          <button
-            type="button"
-            onClick={onDeviceAffordanceClick}
-            className="absolute left-8 text-background/70 hover:text-background"
-            aria-label="Bild aus Gerät auswählen"
-          >
-            <ImageIcon className="h-5 w-5" />
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={onDeviceAffordanceClick}
+          className="absolute left-4 flex max-w-[5.5rem] flex-col items-center gap-1.5 px-3 py-2 text-background/70 hover:text-background"
+          aria-label="Vom Gerät auswählen"
+        >
+          <ImageIcon className="h-8 w-8 shrink-0" />
+          <span className="text-center text-[10px] leading-tight">
+            Vom Gerät auswählen
+          </span>
+        </button>
 
         <button
           type="button"
