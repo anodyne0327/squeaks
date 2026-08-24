@@ -1,5 +1,9 @@
 import { ScanFlowHeader } from "@/components/scan-flow-header";
 import { IncompleteCaptureDocument } from "@/components/scan-incomplete-capture";
+import {
+  TooFarCaptureDocument,
+  TooFarDetectionFrame,
+} from "@/components/scan-too-far-capture";
 
 export type PositioningState = 1 | 2 | 3;
 
@@ -27,14 +31,20 @@ function DocumentLines({ large = false }: { large?: boolean }) {
 function PaperDocument({
   state,
   incompleteCapture = false,
+  tooFarCapture = false,
 }: {
   state: PositioningState;
   incompleteCapture?: boolean;
+  tooFarCapture?: boolean;
 }) {
   const paperClassSmall =
     "h-44 w-32 border border-foreground/40 bg-background p-2";
   const paperClassLarge =
     "h-[400px] w-[270px] border border-foreground/40 bg-background p-3";
+
+  if (tooFarCapture) {
+    return <TooFarCaptureDocument />;
+  }
 
   if (incompleteCapture) {
     return <IncompleteCaptureDocument />;
@@ -69,7 +79,17 @@ function PaperDocument({
   );
 }
 
-function DetectionFrame({ state }: { state: PositioningState }) {
+function DetectionFrame({
+  state,
+  tooFarCapture = false,
+}: {
+  state: PositioningState;
+  tooFarCapture?: boolean;
+}) {
+  if (tooFarCapture) {
+    return <TooFarDetectionFrame />;
+  }
+
   if (state === 1) {
     return (
       <div className="pointer-events-none absolute inset-8">
@@ -103,12 +123,18 @@ export function ScanCamera({
   onCapture,
   positioningState,
   incompleteCapture = false,
+  tooFarCapture = false,
 }: {
   onClose: () => void;
   onCapture: () => void;
   positioningState: PositioningState;
   incompleteCapture?: boolean;
+  tooFarCapture?: boolean;
 }) {
+  const feedback = tooFarCapture
+    ? "Gehen Sie näher an das Dokument heran"
+    : FEEDBACK[positioningState];
+
   return (
     <div className="relative flex h-full flex-col bg-foreground text-background">
       <ScanFlowHeader onClose={onClose} variant="dark" />
@@ -118,7 +144,7 @@ export function ScanCamera({
         {/* Feedback banner */}
         <div className="absolute left-4 right-4 top-3 z-20">
           <p className="rounded-md bg-background px-4 py-2.5 text-center text-sm font-bold text-foreground">
-            {FEEDBACK[positioningState]}
+            {feedback}
           </p>
         </div>
 
@@ -127,8 +153,12 @@ export function ScanCamera({
           <PaperDocument
             state={positioningState}
             incompleteCapture={incompleteCapture}
+            tooFarCapture={tooFarCapture}
           />
-          <DetectionFrame state={positioningState} />
+          <DetectionFrame
+            state={positioningState}
+            tooFarCapture={tooFarCapture}
+          />
         </div>
       </div>
 

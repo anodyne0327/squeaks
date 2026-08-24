@@ -2,7 +2,10 @@ import { useState } from "react";
 import { Check, Crop, Plus, RotateCcw } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ProcessedPagePreview } from "@/components/scan-document-preview";
+import {
+  ProcessedPagePreview,
+  type ProcessedPagePreviewVariant,
+} from "@/components/scan-document-preview";
 import { ScanFlowHeader } from "@/components/scan-flow-header";
 
 function PageAction({
@@ -40,14 +43,16 @@ function PageAction({
 
 export function ScanReview({
   pageIndicator,
-  cutOff = false,
+  previewVariant = "default",
   onRetake,
+  onCrop,
   onAddPage,
   onAbortScan,
 }: {
   pageIndicator: string;
-  cutOff?: boolean;
+  previewVariant?: ProcessedPagePreviewVariant;
   onRetake?: () => void;
+  onCrop?: () => void;
   onAddPage?: () => void;
   onAbortScan: () => void;
 }) {
@@ -62,12 +67,17 @@ export function ScanReview({
 
       <div className="flex min-h-0 flex-1 flex-col px-4 pb-2">
         <div className="relative mx-auto flex min-h-0 w-full max-w-[300px] flex-1 flex-col">
-          <Crop
-            className="absolute right-0 top-0 h-4 w-4 text-muted-foreground"
-            aria-hidden
-          />
+          <button
+            type="button"
+            onClick={onCrop}
+            className="absolute right-0 top-0 text-muted-foreground hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+            disabled={!onCrop}
+            aria-label="Zuschneiden"
+          >
+            <Crop className="h-4 w-4" />
+          </button>
           <div className="flex min-h-0 flex-1 items-center justify-center pt-6">
-            <ProcessedPagePreview cutOff={cutOff} />
+            <ProcessedPagePreview variant={previewVariant} />
           </div>
         </div>
 

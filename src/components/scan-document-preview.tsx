@@ -1,4 +1,5 @@
 import { IncompleteCapturePreview } from "@/components/scan-incomplete-capture";
+import { TooFarCapturePreview } from "@/components/scan-too-far-capture";
 
 function ProcessedPageLines() {
   return (
@@ -13,9 +14,22 @@ function ProcessedPageLines() {
   );
 }
 
-export function ProcessedPagePreview({ cutOff = false }: { cutOff?: boolean }) {
-  if (cutOff) {
+export type ProcessedPagePreviewVariant =
+  | "default"
+  | "cutOff"
+  | "tooSmall";
+
+export function ProcessedPagePreview({
+  variant = "default",
+}: {
+  variant?: ProcessedPagePreviewVariant;
+}) {
+  if (variant === "cutOff") {
     return <IncompleteCapturePreview />;
+  }
+
+  if (variant === "tooSmall") {
+    return <TooFarCapturePreview />;
   }
 
   return (

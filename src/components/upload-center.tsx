@@ -11,9 +11,11 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScanCamera, type PositioningState } from "@/components/scan-camera";
+import { ScanCropEditor } from "@/components/scan-crop-editor";
 import { ScanProcessing } from "@/components/scan-processing";
 import { ScanQualityWarning } from "@/components/scan-quality-warning";
 import { ScanReview } from "@/components/scan-review";
+import type { ProcessedPagePreviewVariant } from "@/components/scan-document-preview";
 import {
   uploadCenterSections,
   uploadStatusText,
@@ -29,10 +31,11 @@ type MobileView =
   | "camera"
   | "processing"
   | "review"
-  | "warning";
+  | "warning"
+  | "crop";
 
 const PROCESSING_AUTO_ADVANCE_MS = 1250;
-const LAST_SCAN_FLOW_STEP = 11;
+const LAST_SCAN_FLOW_STEP = 17;
 
 function getScanFlowStep(
   view: MobileView,
@@ -40,21 +43,33 @@ function getScanFlowStep(
   scanPage: number,
   page2CameraIncomplete: boolean,
   page2CaptureTruncated: boolean,
+  page3CaptureTooSmall: boolean,
+  page3Cropped: boolean,
 ): number | null {
   if (view === "camera") {
+    if (scanPage === 3) return 12;
     if (scanPage === 2) {
       return page2CameraIncomplete ? 5 : 9;
     }
     return positioningState - 1;
   }
   if (view === "processing") {
+    if (scanPage === 3) return 13;
     if (scanPage === 2) {
       return page2CameraIncomplete ? 6 : 10;
     }
     return 3;
   }
-  if (view === "warning") return 7;
+  if (view === "warning") {
+    return scanPage === 3 ? 14 : 7;
+  }
+  if (view === "crop") return 16;
   if (view === "review") {
+    if (scanPage === 3) {
+      if (page3Cropped) return 17;
+      if (page3CaptureTooSmall) return 15;
+      return 15;
+    }
     if (scanPage === 2) {
       return page2CaptureTruncated ? 8 : 11;
     }
@@ -281,6 +296,8 @@ export function UploadCenter({
   const [scanPage, setScanPage] = useState(1);
   const [page2CameraIncomplete, setPage2CameraIncomplete] = useState(true);
   const [page2CaptureTruncated, setPage2CaptureTruncated] = useState(false);
+  const [page3CaptureTooSmall, setPage3CaptureTooSmall] = useState(false);
+  const [page3Cropped, setPage3Cropped] = useState(false);
 
   const updateStickyHeader = () => {
     const scrollEl = scrollRef.current;
@@ -382,8 +399,55 @@ export function UploadCenter({
       return;
     }
 
-    setScanPage(2);
-    setPage2CaptureTruncated(false);
+    if (step === 11) {
+      setScanPage(2);
+      setPage2CaptureTruncated(false);
+      setView("review");
+      return;
+    }
+
+    if (step === 12) {
+      setScanPage(3);
+      setPage3CaptureTooSmall(false);
+      setPage3Cropped(false);
+      setView("camera");
+      return;
+    }
+
+    if (step === 13) {
+      setScanPage(3);
+      processingAutoAdvance.current = false;
+      setView("processing");
+      return;
+    }
+
+    if (step === 14) {
+      setScanPage(3);
+      setPage3CaptureTooSmall(false);
+      setPage3Cropped(false);
+      setView("warning");
+      return;
+    }
+
+    if (step === 15) {
+      setScanPage(3);
+      setPage3CaptureTooSmall(true);
+      setPage3Cropped(false);
+      setView("review");
+      return;
+    }
+
+    if (step === 16) {
+      setScanPage(3);
+      setPage3CaptureTooSmall(true);
+      setPage3Cropped(false);
+      setView("crop");
+      return;
+    }
+
+    setScanPage(3);
+    setPage3CaptureTooSmall(false);
+    setPage3Cropped(true);
     setView("review");
   }, []);
 
@@ -394,6 +458,8 @@ export function UploadCenter({
       scanPage,
       page2CameraIncomplete,
       page2CaptureTruncated,
+      page3CaptureTooSmall,
+      page3Cropped,
     );
     if (step === null || step <= 0) return;
     goToScanFlowStep(step - 1);
@@ -403,6 +469,8 @@ export function UploadCenter({
     scanPage,
     page2CameraIncomplete,
     page2CaptureTruncated,
+    page3CaptureTooSmall,
+    page3Cropped,
     goToScanFlowStep,
   ]);
 
@@ -413,6 +481,8 @@ export function UploadCenter({
       scanPage,
       page2CameraIncomplete,
       page2CaptureTruncated,
+      page3CaptureTooSmall,
+      page3Cropped,
     );
     if (step === null || step >= LAST_SCAN_FLOW_STEP) return;
     goToScanFlowStep(step + 1);
@@ -422,6 +492,8 @@ export function UploadCenter({
     scanPage,
     page2CameraIncomplete,
     page2CaptureTruncated,
+    page3CaptureTooSmall,
+    page3Cropped,
     goToScanFlowStep,
   ]);
 
@@ -429,19 +501,29 @@ export function UploadCenter({
     processingAutoAdvance.current = true;
     if (scanPage === 1) {
       processingNextView.current = "review";
-    } else if (page2CameraIncomplete) {
+    } else if (scanPage === 2 && page2CameraIncomplete) {
       processingNextView.current = "warning";
-    } else {
+    } else if (scanPage === 2) {
       processingNextView.current = "review";
+    } else {
+      processingNextView.current = "warning";
     }
     setView("processing");
   };
 
   const handleAddPage = () => {
-    setScanPage(2);
-    setPage2CameraIncomplete(true);
-    setPage2CaptureTruncated(false);
-    setPositioningState(1);
+    if (scanPage === 1) {
+      setScanPage(2);
+      setPage2CameraIncomplete(true);
+      setPage2CaptureTruncated(false);
+      setPositioningState(1);
+      setView("camera");
+      return;
+    }
+
+    setScanPage(3);
+    setPage3CaptureTooSmall(false);
+    setPage3Cropped(false);
     setView("camera");
   };
 
@@ -451,8 +533,31 @@ export function UploadCenter({
     setView("camera");
   };
 
+  const handleRetakePage3Camera = () => {
+    setPage3CaptureTooSmall(false);
+    setPage3Cropped(false);
+    setView("camera");
+  };
+
   const handleWarningUseAnyway = () => {
+    if (scanPage === 3) {
+      setPage3CaptureTooSmall(true);
+      setPage3Cropped(false);
+      setView("review");
+      return;
+    }
+
     setPage2CaptureTruncated(true);
+    setView("review");
+  };
+
+  const handleCropCancel = () => {
+    setView("review");
+  };
+
+  const handleCropApply = () => {
+    setPage3Cropped(true);
+    setPage3CaptureTooSmall(false);
     setView("review");
   };
 
@@ -460,6 +565,8 @@ export function UploadCenter({
     setScanPage(1);
     setPage2CameraIncomplete(true);
     setPage2CaptureTruncated(false);
+    setPage3CaptureTooSmall(false);
+    setPage3Cropped(false);
     setPositioningState(1);
     setView("overview");
   };
@@ -482,7 +589,19 @@ export function UploadCenter({
     scanPage,
     page2CameraIncomplete,
     page2CaptureTruncated,
+    page3CaptureTooSmall,
+    page3Cropped,
   );
+
+  const reviewPageIndicator =
+    scanPage === 3 ? "Seite 3/3" : scanPage === 2 ? "Seite 2/2" : `Seite ${scanPage}`;
+
+  const reviewPreviewVariant: ProcessedPagePreviewVariant =
+    scanPage === 2 && page2CaptureTruncated
+      ? "cutOff"
+      : scanPage === 3 && page3CaptureTooSmall
+        ? "tooSmall"
+        : "default";
 
   useEffect(() => {
     if (scanFlowStep === null) {
@@ -550,6 +669,7 @@ export function UploadCenter({
         onCapture={handleCapture}
         positioningState={positioningState}
         incompleteCapture={scanPage === 2 && page2CameraIncomplete}
+        tooFarCapture={scanPage === 3}
       />
     );
   }
@@ -561,23 +681,41 @@ export function UploadCenter({
   if (view === "warning") {
     return (
       <ScanQualityWarning
-        onRetake={handleRetakePage2Camera}
+        variant={scanPage === 3 ? "tooFar" : "truncated"}
+        onRetake={
+          scanPage === 3 ? handleRetakePage3Camera : handleRetakePage2Camera
+        }
         onUseAnyway={handleWarningUseAnyway}
       />
+    );
+  }
+
+  if (view === "crop") {
+    return (
+      <ScanCropEditor onCancel={handleCropCancel} onApply={handleCropApply} />
     );
   }
 
   if (view === "review") {
     return (
       <ScanReview
-        pageIndicator={scanPage === 2 ? "Seite 2/2" : `Seite ${scanPage}`}
-        cutOff={scanPage === 2 && page2CaptureTruncated}
+        pageIndicator={reviewPageIndicator}
+        previewVariant={reviewPreviewVariant}
         onRetake={
           scanPage === 2 && page2CaptureTruncated
             ? handleRetakePage2Camera
             : undefined
         }
-        onAddPage={scanPage === 1 ? handleAddPage : undefined}
+        onCrop={
+          scanPage === 3 && (page3CaptureTooSmall || page3Cropped)
+            ? () => setView("crop")
+            : undefined
+        }
+        onAddPage={
+          scanPage === 1 || (scanPage === 2 && !page2CaptureTruncated)
+            ? handleAddPage
+            : undefined
+        }
         onAbortScan={handleAbortScanSession}
       />
     );
